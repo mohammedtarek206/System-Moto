@@ -46,21 +46,21 @@ export default function Login() {
         </div>
 
         <div className="relative z-10 p-16 flex flex-col justify-between h-full w-full text-left">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
-              <ShieldCheck className="text-black" size={28} />
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-white p-1 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)] overflow-hidden">
+              <img src="/photo_2026-05-12_22-56-52.jpg" alt="Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-xl font-black text-white tracking-widest font-['Orbitron']">SECURE ACCESS</span>
+            <span className="text-xl font-black text-white tracking-widest font-['Orbitron']">PREMIUM ACCESS</span>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <h1 className="text-8xl font-black text-white italic font-['Orbitron'] leading-none">
-              MOTO<br />
-              <span className="text-orange-500">PARTS</span>
+            <h1 className="text-8xl font-black text-white italic font-['Cairo'] leading-tight">
+              على بركة<br />
+              <span className="text-orange-500">الله</span>
             </h1>
-            <div className="mt-6 flex items-center gap-4">
+            <div className="mt-6 flex items-center gap-4 text-left">
               <div className="h-1 w-24 bg-orange-500" />
-              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-sm">Management System</p>
+              <p className="text-slate-400 font-bold text-xl">معرض سيارات وموتسيكلات</p>
             </div>
           </motion.div>
 
@@ -85,8 +85,17 @@ export default function Login() {
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-[440px] z-10"
         >
-          {/* Header */}
+          {/* Header with Logo */}
           <div className="mb-10 text-right">
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 flex justify-start"
+            >
+              <div className="w-24 h-24 bg-white p-1 rounded-3xl shadow-2xl overflow-hidden border-4 border-white/5">
+                <img src="/photo_2026-05-12_22-56-52.jpg" alt="Moto Parts Logo" className="w-full h-full object-contain" />
+              </div>
+            </motion.div>
             <h2 className="text-5xl font-black text-white mb-4 leading-tight">مرحباً بك</h2>
             <p className="text-slate-400 text-lg">سجل دخولك للوصول إلى لوحة التحكم</p>
           </div>
@@ -186,7 +195,7 @@ export default function Login() {
               </div>
             </div>
             <p className="text-slate-800 text-[10px] font-bold tracking-[0.4em] uppercase text-center">
-               © 2024 Moto Parts Management • v3.0.0
+               © 2024 معرض سيارات وموتسيكلات • v3.0.0
             </p>
           </div>
         </motion.div>

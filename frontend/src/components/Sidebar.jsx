@@ -51,13 +51,13 @@ export default function Sidebar({ open, onClose }) {
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       >
         <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-[0_8px_20px_rgba(249,115,22,0.4)]">
-              <span className="text-white text-xl">🏍️</span>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-14 h-14 bg-white p-0.5 rounded-xl shadow-[0_4px_20px_rgba(255,255,255,0.1)] overflow-hidden shrink-0 border border-white/10">
+              <img src="/photo_2026-05-12_22-56-52.jpg" alt="Logo" className="w-full h-full object-contain" />
             </div>
-            <div className="flex-1">
-              <div className="sidebar-logo font-black text-xl tracking-tight leading-none">Moto Parts</div>
-              <div className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-widest mt-1 opacity-60">System v1.0</div>
+            <div className="flex-1 min-w-0">
+              <div className="sidebar-logo font-black text-lg tracking-tight leading-none truncate text-white">Moto Parts</div>
+              <div className="text-orange-500 text-[10px] font-black mt-1 opacity-80">معرض سيارات وموتسيكلات</div>
             </div>
             <button onClick={onClose} className="lg:hidden text-[var(--text-muted)]">
               <X size={20} />
