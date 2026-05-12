@@ -56,7 +56,7 @@ export default function Sidebar({ open, onClose }) {
               <img src="/photo_2026-05-12_22-56-52.jpg" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="sidebar-logo font-black text-lg tracking-tight leading-none truncate text-white">Moto Parts</div>
+              <div className="sidebar-logo font-black text-lg tracking-tight leading-none truncate text-white">على بركة الله</div>
               <div className="text-orange-500 text-[10px] font-black mt-1 opacity-80">معرض سيارات وموتسيكلات</div>
             </div>
             <button onClick={onClose} className="lg:hidden text-[var(--text-muted)]">
@@ -96,10 +96,15 @@ export default function Sidebar({ open, onClose }) {
           </div>
         </div>
 
-        <div className="mt-auto p-6">
+        <div className="mt-auto p-6 space-y-4">
           <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 p-4 border border-orange-500/20">
             <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">{isRTL ? 'تحتاج مساعدة؟' : 'Need Help?'}</div>
             <div className="text-xs text-[var(--text-secondary)]">{isRTL ? 'تواصل مع الدعم الفني' : 'Contact Support'}</div>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-[var(--text-muted)] opacity-40 font-bold">
+              {isRTL ? 'تصميم بواسطة شركة أرقام' : 'Designed by Arqam Company'}
+            </p>
           </div>
         </div>
       </motion.aside>

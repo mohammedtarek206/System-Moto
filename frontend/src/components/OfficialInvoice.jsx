@@ -31,7 +31,7 @@ const OfficialInvoice = forwardRef(({ sale }, ref) => {
              <span className="text-white font-black text-2xl italic">M</span>
           </div>
           <div>
-            <h1 className="text-3xl font-black italic tracking-tighter text-slate-900">MOTO PARTS</h1>
+            <h1 className="text-3xl font-black italic tracking-tighter text-slate-900">على بركة الله</h1>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{isRTL ? 'لإدارة قطع غيار الموتوسيكلات' : 'Motorcycle Spare Parts'}</p>
           </div>
         </div>
@@ -48,7 +48,7 @@ const OfficialInvoice = forwardRef(({ sale }, ref) => {
       <div className="grid grid-cols-2 gap-8 mb-8 text-sm">
         <div className="space-y-1">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b w-fit">{isRTL ? 'بيانات المحل' : 'STORE INFO'}</div>
-          <p className="font-bold">Moto Parts Co.</p>
+          <p className="font-bold">على بركة الله</p>
           <p className="opacity-70">{isRTL ? 'القاهرة، شارع رمسيس' : 'Cairo, Ramsis St.'}</p>
           <p className="opacity-70">Tel: +20 123 456 789</p>
           <p className="opacity-70">Email: info@motoparts.com</p>
@@ -99,11 +99,11 @@ const OfficialInvoice = forwardRef(({ sale }, ref) => {
               <ul className="text-[10px] opacity-70 list-disc list-inside space-y-1">
                 <li>{isRTL ? 'الاستبدال خلال 14 يوماً من تاريخ الفاتورة' : 'Exchanges within 14 days of invoice date'}</li>
                 <li>{isRTL ? 'يجب أن تكون القطعة في حالتها الأصلية' : 'Items must be in original condition'}</li>
-                <li>{isRTL ? 'شكراً لاختياركم موتو بارتس' : 'Thank you for choosing Moto Parts'}</li>
+                <li>{isRTL ? 'شكراً لاختياركم معرضنا' : 'Thank you for choosing us'}</li>
               </ul>
            </div>
            <div className="flex items-center gap-4 opacity-30">
-              <div className="text-xs font-black italic tracking-tighter">MOTO PARTS AUTHENTIC INVOICE</div>
+              <div className="text-xs font-black italic tracking-tighter">فاتورة معتمدة - على بركة الله</div>
            </div>
         </div>
 

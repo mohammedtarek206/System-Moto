@@ -32,7 +32,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             
             <Route element={<ProtectedRoute />}>
-              <Route element={<Layout title="Moto Parts" />}>
+              <Route element={<Layout title="على بركة الله" />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/pos" element={<POS />} />

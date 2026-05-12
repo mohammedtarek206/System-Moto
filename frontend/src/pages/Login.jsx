@@ -93,7 +93,7 @@ export default function Login() {
               className="mb-8 flex justify-start"
             >
               <div className="w-24 h-24 bg-white p-1 rounded-3xl shadow-2xl overflow-hidden border-4 border-white/5">
-                <img src="/photo_2026-05-12_22-56-52.jpg" alt="Moto Parts Logo" className="w-full h-full object-contain" />
+                <img src="/photo_2026-05-12_22-56-52.jpg" alt="على بركة الله" className="w-full h-full object-contain" />
               </div>
             </motion.div>
             <h2 className="text-5xl font-black text-white mb-4 leading-tight">مرحباً بك</h2>
@@ -194,9 +194,14 @@ export default function Login() {
                 <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Operational</span>
               </div>
             </div>
-            <p className="text-slate-800 text-[10px] font-bold tracking-[0.4em] uppercase text-center">
-               © 2024 معرض سيارات وموتسيكلات • v3.0.0
-            </p>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-slate-800 text-[10px] font-black tracking-[0.4em] uppercase">
+                © 2024 معرض سيارات وموتسيكلات • v3.0.0
+              </p>
+              <p className="text-orange-500/50 text-[12px] font-bold">
+                تصميم بواسطة شركة أرقام
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
