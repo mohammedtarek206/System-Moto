@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Filter, Download, Edit, Trash2, 
-  Package, AlertCircle, RefreshCw, Barcode, Image as ImageIcon
+  Package, AlertCircle, RefreshCw, Barcode
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
@@ -125,7 +125,6 @@ export default function Products() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>{t('image')}</th>
                 <th>{t('productName')}</th>
                 <th>{t('sku')}</th>
                 <th>{t('category')}</th>
@@ -150,11 +149,6 @@ export default function Products() {
                 </tr>
               ) : products.map((p) => (
                 <tr key={p._id}>
-                  <td>
-                    <div className="w-12 h-12 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] overflow-hidden flex items-center justify-center">
-                      {p.image ? <img src={p.image} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-[var(--text-muted)]" />}
-                    </div>
-                  </td>
                   <td>
                     <div className="font-bold">{isRTL ? p.nameAr || p.name : p.name}</div>
                     <div className="text-xs text-[var(--text-muted)]">{p.motoType}</div>
@@ -217,14 +211,12 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
     unit: product?.unit || 'piece',
     description: product?.description || '',
   });
-  const [imageFile, setImageFile] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     const data = new FormData();
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
-    if (imageFile) data.append('image', imageFile);
 
     try {
       if (product) {
@@ -267,7 +259,6 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
             <div className="form-group"><label className="form-label">{t('sellPrice')}</label><input type="number" step="0.01" className="form-input" required value={formData.sellPrice} onChange={e => setFormData({...formData, sellPrice: e.target.value})}/></div>
             <div className="form-group"><label className="form-label">{t('quantity')}</label><input type="number" className="form-input" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})}/></div>
             <div className="form-group"><label className="form-label">{t('minQty')}</label><input type="number" className="form-input" value={formData.minQuantity} onChange={e => setFormData({...formData, minQuantity: e.target.value})}/></div>
-            <div className="md:col-span-2 form-group"><label className="form-label">{t('image')}</label><input type="file" className="form-input" accept="image/*" onChange={e => setImageFile(e.target.files[0])}/></div>
           </div>
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-secondary">{t('cancel')}</button>

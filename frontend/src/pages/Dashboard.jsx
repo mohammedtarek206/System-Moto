@@ -224,7 +224,7 @@ export default function Dashboard() {
             {stats?.lowStockItems?.map((item) => (
               <div key={item.id} className="flex items-center gap-4 p-3 rounded-2xl bg-[var(--bg-card2)] border border-[var(--border)]">
                 <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl">
-                  {item.image ? <img src={item.image} className="w-full h-full object-cover rounded-xl" /> : '📦'}
+                  📦
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-bold">{isRTL ? item.name_ar || item.name : item.name}</div>

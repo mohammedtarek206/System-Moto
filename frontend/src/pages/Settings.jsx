@@ -48,7 +48,7 @@ export default function Settings() {
 
   const tabs = [
     { id: 'general', label: isRTL ? 'إعدادات المتجر' : 'Shop Settings', icon: Store },
-    { id: 'localization', label: isRTL ? 'اللغة والعملة' : 'Localization', icon: Languages },
+    { id: 'localization', label: isRTL ? 'اللغة' : 'Localization', icon: Languages },
     { id: 'notifications', label: isRTL ? 'التنبيهات' : 'Notifications', icon: Bell },
     { id: 'security', label: isRTL ? 'الأمان' : 'Security', icon: Shield },
   ];
@@ -126,7 +126,7 @@ export default function Settings() {
                     <input type="text" className="form-input" value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">{isRTL ? 'رمز العملة' : 'Currency Symbol'}</label>
+                    <label className="form-label">{isRTL ? 'رمز الجنيه المصري' : 'Currency Symbol'}</label>
                     <input type="text" className="form-input" value={settings.currency_symbol} onChange={e => setSettings({...settings, currency_symbol: e.target.value})} />
                   </div>
                   <div className="form-group">

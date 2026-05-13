@@ -34,7 +34,7 @@ const translations = {
     confirmPassword: 'تأكيد كلمة المرور', forgotPassword: 'نسيت كلمة المرور',
     role: 'الصلاحية', admin: 'مدير', cashier: 'كاشير', warehouse: 'موظف مخزن',
     // Settings
-    shopName: 'اسم المحل', currency: 'العملة', taxRate: 'نسبة الضريبة',
+    shopName: 'اسم المحل', currency: 'الجنيه المصري', taxRate: 'نسبة الضريبة',
     lowStockThreshold: 'حد المخزون المنخفض', language: 'اللغة', theme: 'المظهر',
     logo: 'الشعار', invoiceFooter: 'تذييل الفاتورة',
   },
