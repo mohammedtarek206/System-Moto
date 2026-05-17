@@ -3,10 +3,17 @@ const Category = require('../models/Category');
 
 exports.getProducts = async (req, res) => {
   try {
-    const { category, search, moto_type, low_stock, page = 1, limit = 10 } = req.query;
+    const { category, search, moto_type, low_stock, page = 1, limit } = req.query;
     let query = {};
     if (category) query.category = category;
-    if (search) query.$or = [{ name: new RegExp(search, 'i') }, { sku: new RegExp(search, 'i') }, { barcode: new RegExp(search, 'i') }];
+    if (search) {
+      query.$or = [
+        { name: new RegExp(search, 'i') },
+        { nameAr: new RegExp(search, 'i') },
+        { sku: new RegExp(search, 'i') },
+        { barcode: new RegExp(search, 'i') }
+      ];
+    }
     if (moto_type) query.motoType = moto_type;
     
     // Low stock filter
@@ -16,14 +23,17 @@ exports.getProducts = async (req, res) => {
       return res.json({ success: true, data: filtered, total: filtered.length, page: 1, limit: filtered.length });
     }
 
+    const limitVal = limit ? parseInt(limit) : 10000;
+    const skipVal = limit ? (parseInt(page) - 1) * limitVal : 0;
+
     const products = await Product.find(query)
       .populate('category')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limitVal)
+      .skip(skipVal);
       
     const total = await Product.countDocuments(query);
-    res.json({ success: true, data: products, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ success: true, data: products, total, page: parseInt(page), limit: limitVal });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 
@@ -39,8 +49,50 @@ exports.createProduct = async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) data.image = `/uploads/${req.file.filename}`;
+    
+    // Check if product already exists by name or barcode or sku
+    let existingProduct = null;
+    if (data.barcode) {
+      existingProduct = await Product.findOne({ barcode: data.barcode });
+    }
+    if (!existingProduct && data.sku) {
+      existingProduct = await Product.findOne({ sku: data.sku });
+    }
+    if (!existingProduct && data.name) {
+      existingProduct = await Product.findOne({ name: data.name });
+    }
+
+    if (existingProduct) {
+      // Product exists, increment quantity
+      const newQuantity = (existingProduct.quantity || 0) + (Number(data.quantity) || 0);
+      existingProduct.quantity = newQuantity;
+      // Also update other fields if provided (optional, but requested logic is "لا يتم إنشاء صنف مكرر، ويتم فقط زيادة الكمية")
+      if (data.sellPrice) existingProduct.sellPrice = data.sellPrice;
+      if (data.buyPrice) existingProduct.buyPrice = data.buyPrice;
+      
+      await existingProduct.save();
+      return res.status(200).json({ success: true, message: 'المنتج موجود مسبقاً، تم تحديث الكمية بنجاح', data: existingProduct });
+    }
+
+    // Auto-generate SKU and Barcode if not provided
+    if (!data.sku) {
+      data.sku = 'SKU-' + Date.now() + Math.floor(Math.random() * 1000);
+    }
+    if (!data.barcode) {
+      data.barcode = Date.now().toString() + Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    }
+
     const product = await Product.create(data);
     res.status(201).json({ success: true, message: 'تم إضافة المنتج بنجاح', data: product });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+};
+
+exports.scanBarcode = async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const product = await Product.findOne({ barcode });
+    if (!product) return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
+    res.json({ success: true, data: product });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
 

@@ -5,7 +5,7 @@ const LangContext = createContext(null);
 const translations = {
   ar: {
     // Nav
-    dashboard: 'لوحة التحكم', products: 'المنتجات', sales: 'المبيعات',
+    dashboard: 'لوحة التحكم', products: 'المنتجات', sales: 'المبيعات', barcodes: 'طباعة الباركود',
     pos: 'الكاشير', customers: 'العملاء', suppliers: 'الموردين',
     inventory: 'المخزن', reports: 'التقارير', settings: 'الإعدادات',
     notifications: 'الإشعارات', users: 'المستخدمين', logout: 'تسجيل الخروج',
@@ -34,12 +34,12 @@ const translations = {
     confirmPassword: 'تأكيد كلمة المرور', forgotPassword: 'نسيت كلمة المرور',
     role: 'الصلاحية', admin: 'مدير', cashier: 'كاشير', warehouse: 'موظف مخزن',
     // Settings
-    shopName: 'اسم المحل', currency: 'الجنيه المصري', taxRate: 'نسبة الضريبة',
+    shopName: 'اسم المحل', currency: 'جنيه مصري', taxRate: 'نسبة الضريبة',
     lowStockThreshold: 'حد المخزون المنخفض', language: 'اللغة', theme: 'المظهر',
     logo: 'الشعار', invoiceFooter: 'تذييل الفاتورة',
   },
   en: {
-    dashboard: 'Dashboard', products: 'Products', sales: 'Sales',
+    dashboard: 'Dashboard', products: 'Products', sales: 'Sales', barcodes: 'Barcodes',
     pos: 'POS Cashier', customers: 'Customers', suppliers: 'Suppliers',
     inventory: 'Inventory', reports: 'Reports', settings: 'Settings',
     notifications: 'Notifications', users: 'Users', logout: 'Logout',

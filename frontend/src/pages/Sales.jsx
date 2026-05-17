@@ -96,7 +96,7 @@ export default function Sales() {
         <div className="relative search-input md:col-span-1">
           <Search className="search-icon" size={16} />
           <input 
-            type="text" className="form-input" placeholder={t('invoiceNo')}
+            type="text" className="form-input" placeholder={isRTL ? 'رقم الفاتورة أو الباركود...' : 'Invoice No. or Barcode...'}
             value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})}
           />
         </div>

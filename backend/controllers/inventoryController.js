@@ -3,7 +3,26 @@ const Product = require('../models/Product');
 
 exports.getLogs = async (req, res) => {
   try {
-    const logs = await InventoryLog.find()
+    const { search } = req.query;
+    let query = {};
+    if (search) {
+      // Find products matching the search query
+      const matchingProducts = await Product.find({
+        $or: [
+          { barcode: new RegExp(search, 'i') },
+          { sku: new RegExp(search, 'i') },
+          { name: new RegExp(search, 'i') }
+        ]
+      }).select('_id');
+      const productIds = matchingProducts.map(p => p._id);
+      
+      query.$or = [
+        { productName: new RegExp(search, 'i') },
+        { product: { $in: productIds } }
+      ];
+    }
+
+    const logs = await InventoryLog.find(query)
       .populate('user', 'name')
       .sort({ createdAt: -1 })
       .limit(100);

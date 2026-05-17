@@ -126,7 +126,7 @@ const OfficialInvoice = forwardRef(({ sale }, ref) => {
           </div>
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-black italic">TOTAL</span>
-            <span className="text-3xl font-black text-red-600 tracking-tighter">{Number(sale.totalAmount).toFixed(2)} <span className="text-xs uppercase">{isRTL ? 'الجنيه المصري' : 'EGP'}</span></span>
+            <span className="text-3xl font-black text-red-600 tracking-tighter">{Number(sale.totalAmount).toFixed(2)} <span className="text-xs uppercase">{isRTL ? 'جنيه مصري' : 'EGP'}</span></span>
           </div>
           
           <div className="flex justify-between items-end">

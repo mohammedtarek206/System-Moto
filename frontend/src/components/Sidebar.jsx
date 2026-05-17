@@ -4,12 +4,13 @@ import { useLang } from '../contexts/LangContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Monitor, Users, Truck,
-  Warehouse, BarChart3, Settings, X, ChevronRight
+  Warehouse, BarChart3, Settings, X, ChevronRight, Barcode
 } from 'lucide-react';
 
 const navItems = [
   { key: 'dashboard', path: '/', icon: LayoutDashboard, roles: ['admin','cashier','warehouse'] },
   { key: 'products', path: '/products', icon: Package, roles: ['admin','warehouse'] },
+  { key: 'barcodes', path: '/barcodes', icon: Barcode, roles: ['admin','warehouse'] },
   { key: 'pos', path: '/pos', icon: Monitor, roles: ['admin','cashier'] },
   { key: 'sales', path: '/sales', icon: ShoppingCart, roles: ['admin','cashier'] },
   { key: 'customers', path: '/customers', icon: Users, roles: ['admin','cashier'] },

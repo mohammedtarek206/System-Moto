@@ -126,7 +126,7 @@ export default function Settings() {
                     <input type="text" className="form-input" value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">{isRTL ? 'رمز الجنيه المصري' : 'Currency Symbol'}</label>
+                    <label className="form-label">{isRTL ? 'رمز جنيه مصري' : 'Currency Symbol'}</label>
                     <input type="text" className="form-input" value={settings.currency_symbol} onChange={e => setSettings({...settings, currency_symbol: e.target.value})} />
                   </div>
                   <div className="form-group">

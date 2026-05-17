@@ -58,16 +58,39 @@ exports.createSale = async (req, res) => {
 
 exports.getSales = async (req, res) => {
   try {
-    const { from_date, to_date } = req.query;
+    const { from_date, to_date, search } = req.query;
     let query = {};
     if (from_date || to_date) {
       query.createdAt = {};
       if (from_date) query.createdAt.$gte = new Date(from_date);
       if (to_date) query.createdAt.$lte = new Date(to_date);
     }
+    
+    // Search by invoice number or by product barcode
+    if (search) {
+      const isInvoiceNumber = search.toLowerCase().startsWith('inv-') || search.length > 5; // heuristic
+      
+      // Attempt to find products by barcode or sku or name
+      const matchingProducts = await Product.find({
+        $or: [
+          { barcode: new RegExp(search, 'i') },
+          { sku: new RegExp(search, 'i') },
+          { name: new RegExp(search, 'i') }
+        ]
+      }).select('_id');
+      
+      const productIds = matchingProducts.map(p => p._id);
+
+      query.$or = [
+        { invoiceNumber: new RegExp(search, 'i') },
+        { 'items.product': { $in: productIds } }
+      ];
+    }
+
     const sales = await Sale.find(query)
       .populate('customer')
       .populate({ path: 'user', select: 'name' })
+      .populate('items.product', 'name nameAr sku barcode')
       .sort({ createdAt: -1 });
     res.json({ success: true, data: sales });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }

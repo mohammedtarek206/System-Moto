@@ -16,6 +16,7 @@ import Suppliers from './pages/Suppliers';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import BarcodePrint from './pages/BarcodePrint';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
               <Route element={<Layout title="على بركة الله" />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
+                <Route path="/barcodes" element={<BarcodePrint />} />
                 <Route path="/pos" element={<POS />} />
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/customers" element={<Customers />} />

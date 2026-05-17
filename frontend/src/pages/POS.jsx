@@ -29,7 +29,7 @@ export default function POS() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get(`/products?search=${search}&limit=24`);
+      const res = await api.get(`/products?search=${search}&limit=10000`);
       setProducts(res.data.data);
     } catch {}
   };
@@ -40,6 +40,68 @@ export default function POS() {
       setCustomers(res.data.data);
     } catch {}
   };
+
+  const handleScanBarcode = async (barcode) => {
+    try {
+      const res = await api.get(`/products/scan/${barcode}`);
+      const product = res.data.data;
+      addToCart(product);
+    } catch (err) {
+      toast.error(isRTL ? 'المنتج غير موجود' : 'Product not found');
+    }
+  };
+
+  useEffect(() => {
+    let barcodeBuffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e) => {
+      const currentTime = Date.now();
+      
+      // Differentiate between manual typing in an input field vs scanner inputs
+      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      const timeDiff = currentTime - lastKeyTime;
+      const isScannerFast = timeDiff < 30; // Scanner keypresses are extremely fast
+
+      // If user is manually typing, let them type normally without intercepting for barcode
+      if (isInputActive && !isScannerFast && e.key !== 'F2' && e.key !== 'F9') {
+        lastKeyTime = currentTime;
+        return;
+      }
+
+      // If time between keystrokes is too long, reset the buffer (prevent manual slow typing from compiling a barcode)
+      if (timeDiff > 60) {
+        barcodeBuffer = '';
+      }
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.length > 2) {
+          e.preventDefault();
+          handleScanBarcode(barcodeBuffer.trim());
+          barcodeBuffer = '';
+          return;
+        }
+      }
+
+      if (e.key.length === 1) {
+        barcodeBuffer += e.key;
+      }
+
+      lastKeyTime = currentTime;
+
+      // Keyboard shortcuts
+      if (e.key === 'F2') {
+        e.preventDefault();
+        handleCheckout();
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        document.getElementById('posSearchInput')?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cart, selectedCustomer, discount, paidAmount, paymentMethod]); // Dependencies needed to ensure handleCheckout gets latest state
 
   const addToCart = (product) => {
     if (product.quantity <= 0) {
@@ -53,6 +115,7 @@ export default function POS() {
         return;
       }
       setCart(cart.map(item => item.productId === product._id ? { ...item, quantity: item.quantity + 1 } : item));
+      toast.success(isRTL ? 'تم زيادة الكمية' : 'Quantity increased');
     } else {
       setCart([...cart, { 
         productId: product._id, 
@@ -62,6 +125,7 @@ export default function POS() {
         quantity: 1, 
         stock: product.quantity 
       }]);
+      toast.success(isRTL ? 'تم إضافة المنتج' : 'Product added');
     }
   };
 
@@ -125,13 +189,25 @@ export default function POS() {
     <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 fade-in">
       {/* Products Selection Section */}
       <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <div className="relative form-icon-group">
-          <Search className="input-icon" size={20} />
-          <input 
-            type="text" className="form-input h-14 text-lg" 
-            placeholder={isRTL ? 'بحث عن منتج (الاسم أو الباركود)...' : 'Search product (Name or Barcode)...'}
-            value={search} onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 items-center w-full">
+          <div className="relative form-icon-group flex-1 w-full">
+            <Search className="input-icon" size={20} />
+            <input 
+              id="posSearchInput"
+              type="text" className="form-input h-14 text-lg" 
+              placeholder={isRTL ? 'بحث عن منتج (الاسم أو الباركود)...' : 'Search product (Name or Barcode)...'}
+              value={search} onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 h-14 rounded-2xl flex items-center gap-3 shrink-0">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest leading-none">
+              {isRTL ? 'الماسح نشط' : 'SCANNER ACTIVE'}
+            </span>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
