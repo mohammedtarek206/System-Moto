@@ -26,11 +26,13 @@ const ProfessionalInvoice = forwardRef(({ sale }, ref) => {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 
-        .pro-invoice-root * {
+        .pro-invoice-root, .pro-invoice-root * {
           box-sizing: border-box;
           margin: 0;
           padding: 0;
           font-family: 'Cairo', sans-serif;
+          letter-spacing: normal !important;
+          word-spacing: normal !important;
         }
 
         .pro-invoice-root {
@@ -102,7 +104,6 @@ const ProfessionalInvoice = forwardRef(({ sale }, ref) => {
           font-weight: 800;
           color: #aaa;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
           margin-bottom: 6px;
           border-bottom: 1px solid #e9ecef;
           padding-bottom: 4px;
@@ -139,7 +140,6 @@ const ProfessionalInvoice = forwardRef(({ sale }, ref) => {
           text-align: right;
           font-weight: 700;
           font-size: 10px;
-          letter-spacing: 0.3px;
         }
         .inv-table td {
           padding: 7px 10px;
