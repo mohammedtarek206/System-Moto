@@ -20,25 +20,32 @@ exports.createSale = async (req, res) => {
       
       saleItems.push({
         product: item.product,
+        name: product.name,
+        nameAr: product.nameAr || product.name,
         quantity: item.quantity,
         sellPrice: item.sellPrice,
-        buyPrice: product.buyPrice
+        buyPrice: product.buyPrice,
+        total: item.sellPrice * item.quantity
       });
     }
 
-    const finalTotal = totalAmount - discount + tax;
+    const subtotal = totalAmount;
+    const finalTotal = subtotal - Number(discount) + Number(tax);
 
-    // Create Sale
+    // Create Sale — save to both total and totalAmount for compatibility
     const sale = await Sale.create({
       invoiceNumber: `INV-${Date.now()}`,
       customer: customer || null,
       user: req.user._id,
       items: saleItems,
+      subtotal,
+      total: finalTotal,
       totalAmount: finalTotal,
-      totalCost: totalCost,
-      discount,
-      tax,
+      totalCost,
+      discount: Number(discount),
+      tax: Number(tax),
       paidAmount: paidAmount || finalTotal,
+      changeAmount: paidAmount ? Math.max(0, paidAmount - finalTotal) : 0,
       paymentMethod,
       notes,
       status: 'completed'
@@ -49,7 +56,13 @@ exports.createSale = async (req, res) => {
       await Product.findByIdAndUpdate(item.product, { $inc: { quantity: -item.quantity } });
     }
 
-    res.status(201).json({ success: true, message: 'تم إتمام البيع بنجاح', data: sale });
+    // Populate for response
+    const populatedSale = await Sale.findById(sale._id)
+      .populate('customer', 'name phone')
+      .populate('user', 'name')
+      .populate('items.product', 'name nameAr sku barcode');
+
+    res.status(201).json({ success: true, message: 'تم إتمام البيع بنجاح', data: populatedSale });
   } catch (err) { 
     console.error('Sale Error:', err);
     res.status(500).json({ success: false, message: err.message }); 

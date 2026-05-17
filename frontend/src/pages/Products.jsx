@@ -215,20 +215,27 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const data = new FormData();
-    Object.keys(formData).forEach(key => data.append(key, formData[key]));
+
+    // Build a clean JSON object — omit empty strings to avoid validation errors
+    const payload = {};
+    Object.keys(formData).forEach(key => {
+      const val = formData[key];
+      if (val !== '' && val !== null && val !== undefined) {
+        payload[key] = val;
+      }
+    });
 
     try {
       if (product) {
-        await api.put(`/products/${product._id}`, data);
+        await api.put(`/products/${product._id}`, payload);
         toast.success(isRTL ? 'تم التحديث بنجاح' : 'Updated successfully');
       } else {
-        await api.post('/products', data);
+        await api.post('/products', payload);
         toast.success(isRTL ? 'تمت الإضافة بنجاح' : 'Added successfully');
       }
       onSuccess();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error');
+      toast.error(err.response?.data?.message || (isRTL ? 'حدث خطأ' : 'Error occurred'));
     } finally {
       setLoading(false);
     }
@@ -243,26 +250,58 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-group"><label className="form-label">Name (EN)</label><input type="text" className="form-input" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">الاسم (AR)</label><input type="text" className="form-input" required value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('sku')}</label><input type="text" className="form-input" required value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('barcode')}</label><div className="relative search-input"><Barcode className="search-icon" size={16} /><input type="text" className="form-input" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})}/></div></div>
+            <div className="form-group">
+              <label className="form-label">Name (EN) *</label>
+              <input type="text" className="form-input" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">الاسم (AR)</label>
+              <input type="text" className="form-input" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('sku')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري، يتولد تلقائياً' : 'optional, auto-generated'})</span></label>
+              <input type="text" className="form-input" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('barcode')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري' : 'optional'})</span></label>
+              <div className="relative search-input">
+                <Barcode className="search-icon" size={16} />
+                <input type="text" className="form-input" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})}/>
+              </div>
+            </div>
             <div className="form-group">
               <label className="form-label">{t('category')}</label>
-              <select className="form-input" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                <option value="">Select Category</option>
-                {categories.map(c => <option key={c._id} value={c._id}>{isRTL ? c.nameAr : c.name}</option>)}
+              <select className="form-input" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                <option value="">{isRTL ? 'بدون تصنيف' : 'No Category'}</option>
+                {categories.map(c => <option key={c._id} value={c._id}>{isRTL ? c.nameAr || c.name : c.name}</option>)}
               </select>
             </div>
-            <div className="form-group"><label className="form-label">{t('motoType')}</label><input type="text" className="form-input" value={formData.motoType} onChange={e => setFormData({...formData, motoType: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('buyPrice')}</label><input type="number" step="0.01" className="form-input" required value={formData.buyPrice} onChange={e => setFormData({...formData, buyPrice: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('sellPrice')}</label><input type="number" step="0.01" className="form-input" required value={formData.sellPrice} onChange={e => setFormData({...formData, sellPrice: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('quantity')}</label><input type="number" className="form-input" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})}/></div>
-            <div className="form-group"><label className="form-label">{t('minQty')}</label><input type="number" className="form-input" value={formData.minQuantity} onChange={e => setFormData({...formData, minQuantity: e.target.value})}/></div>
+            <div className="form-group">
+              <label className="form-label">{t('motoType')}</label>
+              <input type="text" className="form-input" value={formData.motoType} onChange={e => setFormData({...formData, motoType: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('buyPrice')} *</label>
+              <input type="number" step="0.01" min="0" className="form-input" required value={formData.buyPrice} onChange={e => setFormData({...formData, buyPrice: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('sellPrice')} *</label>
+              <input type="number" step="0.01" min="0" className="form-input" required value={formData.sellPrice} onChange={e => setFormData({...formData, sellPrice: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('quantity')} *</label>
+              <input type="number" min="0" className="form-input" required value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('minQty')}</label>
+              <input type="number" min="0" className="form-input" value={formData.minQuantity} onChange={e => setFormData({...formData, minQuantity: e.target.value})}/>
+            </div>
           </div>
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-secondary">{t('cancel')}</button>
-            <button type="submit" disabled={loading} className="btn btn-primary min-w-[120px]">{loading ? <RefreshCw className="loading-spin" size={18} /> : t('save')}</button>
+            <button type="submit" disabled={loading} className="btn btn-primary min-w-[120px]">
+              {loading ? <RefreshCw className="loading-spin" size={18} /> : t('save')}
+            </button>
           </div>
         </form>
       </motion.div>

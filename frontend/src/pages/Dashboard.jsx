@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
-  const { t, isRTL } = useLang();
+  const { t, isRTL, lang } = useLang();
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export default function Dashboard() {
               <DollarSign size={24} />
             </div>
             <div className="flex items-center gap-1 text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded-full font-bold">
-              <TrendingUp size={12} /> +12%
+              <TrendingUp size={12} /> {stats?.today?.count || 0} {isRTL ? 'فاتورة' : 'inv'}
             </div>
           </div>
           <div className="text-[var(--text-muted)] text-sm font-semibold">{t('todaySales')}</div>
@@ -82,8 +82,8 @@ export default function Dashboard() {
             <div className="stat-icon bg-blue-500/10 text-blue-500">
               <ShoppingCart size={24} />
             </div>
-            <div className="flex items-center gap-1 text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded-full font-bold">
-              <TrendingUp size={12} /> +5%
+            <div className="flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full font-bold">
+              {stats?.month?.count || 0} {isRTL ? 'فاتورة' : 'inv'}
             </div>
           </div>
           <div className="text-[var(--text-muted)] text-sm font-semibold">{t('monthSales')}</div>
@@ -105,7 +105,7 @@ export default function Dashboard() {
             <div className="stat-icon bg-red-500/10 text-red-500">
               <AlertTriangle size={24} />
             </div>
-            {stats?.products?.low_stock > 0 && (
+            {(stats?.products?.low_stock || 0) > 0 && (
               <div className="flex items-center gap-1 text-xs text-red-500 bg-red-500/10 px-2 py-1 rounded-full font-bold">
                 {isRTL ? 'تحتاج توريد' : 'Need restock'}
               </div>
@@ -138,7 +138,7 @@ export default function Dashboard() {
                 dataKey="date" 
                 stroke="var(--text-muted)" 
                 fontSize={12} 
-                tickFormatter={(val) => new Date(val).toLocaleDateString(lang, { day: '2-digit', month: 'short' })}
+                tickFormatter={(val) => new Date(val).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { day: '2-digit', month: 'short' })}
               />
               <YAxis stroke="var(--text-muted)" fontSize={12} />
               <Tooltip 
@@ -160,7 +160,9 @@ export default function Dashboard() {
                   {i + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate">{p.product_name}</div>
+                  <div className="text-sm font-semibold truncate">
+                    {isRTL ? (p.product_name_ar || p.product_name) : p.product_name}
+                  </div>
                   <div className="w-full bg-[var(--bg-card2)] h-1.5 rounded-full mt-1 overflow-hidden">
                     <div 
                       className="bg-gradient-to-r from-orange-500 to-red-500 h-full rounded-full"
@@ -168,7 +170,7 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
-                <div className="text-xs font-bold">{p.sold} {isRTL ? 'قطعة' : 'pcs'}</div>
+                <div className="text-xs font-bold text-[var(--text-muted)]">{p.sold} {isRTL ? 'قطعة' : 'pcs'}</div>
               </div>
             ))}
             {(!stats?.topProducts || stats.topProducts.length === 0) && (

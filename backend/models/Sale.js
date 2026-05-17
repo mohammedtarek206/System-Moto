@@ -7,6 +7,7 @@ const saleSchema = new mongoose.Schema({
   items: [{
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
     name: String,
+    nameAr: String,
     quantity: Number,
     buyPrice: Number,
     sellPrice: Number,
@@ -15,7 +16,9 @@ const saleSchema = new mongoose.Schema({
   subtotal: { type: Number, default: 0 },
   discount: { type: Number, default: 0 },
   tax: { type: Number, default: 0 },
-  total: { type: Number, default: 0 },
+  total: { type: Number, default: 0 },         // final total after discount/tax
+  totalAmount: { type: Number, default: 0 },   // alias used in controller
+  totalCost: { type: Number, default: 0 },     // cost of goods sold
   paidAmount: { type: Number, default: 0 },
   changeAmount: { type: Number, default: 0 },
   paymentMethod: { type: String, enum: ['cash', 'card', 'transfer', 'credit'], default: 'cash' },

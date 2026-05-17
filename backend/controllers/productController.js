@@ -49,42 +49,44 @@ exports.createProduct = async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) data.image = `/uploads/${req.file.filename}`;
-    
-    // Check if product already exists by name or barcode or sku
-    let existingProduct = null;
-    if (data.barcode) {
-      existingProduct = await Product.findOne({ barcode: data.barcode });
+
+    // Remove empty category to avoid cast errors
+    if (!data.category || data.category === '') delete data.category;
+
+    // Auto-generate SKU and Barcode FIRST (before any checks)
+    if (!data.sku || data.sku.trim() === '') {
+      data.sku = 'SKU-' + Date.now() + Math.floor(Math.random() * 1000);
     }
-    if (!existingProduct && data.sku) {
-      existingProduct = await Product.findOne({ sku: data.sku });
-    }
-    if (!existingProduct && data.name) {
-      existingProduct = await Product.findOne({ name: data.name });
+    if (!data.barcode || data.barcode.trim() === '') {
+      data.barcode = Date.now().toString() + Math.floor(Math.random() * 100).toString().padStart(2, '0');
     }
 
+    // Check if product already exists by barcode or sku or name
+    let existingProduct = null;
+    existingProduct = await Product.findOne({ barcode: data.barcode });
+    if (!existingProduct) existingProduct = await Product.findOne({ sku: data.sku });
+    if (!existingProduct && data.name) existingProduct = await Product.findOne({ name: data.name });
+
     if (existingProduct) {
-      // Product exists, increment quantity
-      const newQuantity = (existingProduct.quantity || 0) + (Number(data.quantity) || 0);
-      existingProduct.quantity = newQuantity;
-      // Also update other fields if provided (optional, but requested logic is "لا يتم إنشاء صنف مكرر، ويتم فقط زيادة الكمية")
-      if (data.sellPrice) existingProduct.sellPrice = data.sellPrice;
-      if (data.buyPrice) existingProduct.buyPrice = data.buyPrice;
-      
+      // Product exists — increment quantity only
+      const addedQty = Number(data.quantity) || 0;
+      existingProduct.quantity = (existingProduct.quantity || 0) + addedQty;
+      if (data.sellPrice && Number(data.sellPrice) > 0) existingProduct.sellPrice = Number(data.sellPrice);
+      if (data.buyPrice && Number(data.buyPrice) > 0) existingProduct.buyPrice = Number(data.buyPrice);
       await existingProduct.save();
       return res.status(200).json({ success: true, message: 'المنتج موجود مسبقاً، تم تحديث الكمية بنجاح', data: existingProduct });
     }
 
-    // Auto-generate SKU and Barcode if not provided
-    if (!data.sku) {
-      data.sku = 'SKU-' + Date.now() + Math.floor(Math.random() * 1000);
-    }
-    if (!data.barcode) {
-      data.barcode = Date.now().toString() + Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    // Validate required fields
+    if (!data.name || data.name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'اسم المنتج مطلوب' });
     }
 
     const product = await Product.create(data);
     res.status(201).json({ success: true, message: 'تم إضافة المنتج بنجاح', data: product });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.scanBarcode = async (req, res) => {

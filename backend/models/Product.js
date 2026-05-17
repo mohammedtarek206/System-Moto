@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   nameAr: String,
-  sku: { type: String, required: true, unique: true },
-  barcode: String,
+  sku: { type: String, unique: true, sparse: true },
+  barcode: { type: String, sparse: true },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   motoType: String,
   buyPrice: { type: Number, default: 0 },

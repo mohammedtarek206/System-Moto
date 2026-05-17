@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useReactToPrint } from 'react-to-print';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import OfficialInvoice from '../components/OfficialInvoice';
+import ProfessionalInvoice from '../components/ProfessionalInvoice';
 
 export default function Sales() {
   const { t, isRTL, lang } = useLang();
@@ -180,7 +180,40 @@ export default function Sales() {
             >
               <div className="p-4 bg-white border-b flex justify-between items-center no-print sticky top-0 z-10 shadow-sm">
                 <div className="flex gap-2">
-                  <button onClick={handlePrint} className="btn bg-slate-900 text-white gap-2 h-10 px-4 rounded-xl hover:bg-black">
+                  <button 
+                    onClick={() => {
+                      const printElement = document.getElementById('sales-print-area');
+                      if (!printElement) return;
+
+                      // Create temporary iframe for A4 printing
+                      const iframe = document.createElement('iframe');
+                      iframe.style.position = 'fixed';
+                      iframe.style.right = '0';
+                      iframe.style.bottom = '0';
+                      iframe.style.width = '0';
+                      iframe.style.height = '0';
+                      iframe.style.border = '0';
+                      document.body.appendChild(iframe);
+
+                      const doc = iframe.contentDocument || iframe.contentWindow.document;
+                      doc.open();
+                      doc.write(`
+                        <html>
+                          <head>
+                            <title>Print Invoice</title>
+                            <style>
+                              body { margin: 0; padding: 0; background: #fff; }
+                            </style>
+                          </head>
+                          <body onload="setTimeout(function(){ window.print(); window.parent.document.body.removeChild(window.frameElement); }, 500)">
+                            ${printElement.innerHTML}
+                          </body>
+                        </html>
+                      `);
+                      doc.close();
+                    }}
+                    className="btn bg-slate-900 text-white gap-2 h-10 px-4 rounded-xl hover:bg-black"
+                  >
                     <Printer size={18} /> {isRTL ? 'طباعة' : 'Print'}
                   </button>
                   <button onClick={handleDownloadPDF} className="btn btn-secondary gap-2 h-10 px-4 rounded-xl">
@@ -194,7 +227,9 @@ export default function Sales() {
               
               <div className="p-4 md:p-8 bg-slate-200/30 overflow-y-auto max-h-[80vh]">
                 <div className="bg-white shadow-xl mx-auto max-w-[210mm] min-h-[297mm]">
-                  <OfficialInvoice ref={invoiceRef} sale={selectedSale} />
+                  <div id="sales-print-area">
+                    <ProfessionalInvoice ref={invoiceRef} sale={selectedSale} />
+                  </div>
                 </div>
               </div>
             </motion.div>

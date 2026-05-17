@@ -12,8 +12,19 @@ router.post('/categories', protect, authorize('admin', 'warehouse'), createCateg
 router.put('/categories/:id', protect, authorize('admin', 'warehouse'), updateCategory);
 router.delete('/categories/:id', protect, authorize('admin'), deleteCategory);
 router.get('/:id', protect, getProduct);
-router.post('/', protect, authorize('admin', 'warehouse'), upload.single('image'), createProduct);
-router.put('/:id', protect, authorize('admin', 'warehouse'), upload.single('image'), updateProduct);
+
+// Smart upload middleware: handles both JSON and multipart/form-data
+const smartUpload = (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    upload.single('image')(req, res, next);
+  } else {
+    next(); // JSON body already parsed by express.json()
+  }
+};
+
+router.post('/', protect, authorize('admin', 'warehouse'), smartUpload, createProduct);
+router.put('/:id', protect, authorize('admin', 'warehouse'), smartUpload, updateProduct);
 router.delete('/:id', protect, authorize('admin'), deleteProduct);
 
 module.exports = router;

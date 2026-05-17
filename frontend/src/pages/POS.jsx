@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, ShoppingCart, Trash2, Plus, Minus, UserPlus, 
-  CreditCard, Banknote, Printer, Package, Calculator, RefreshCw
+  CreditCard, Banknote, Printer, Package, Calculator, RefreshCw, X
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import ProfessionalInvoice from '../components/ProfessionalInvoice';
 
 export default function POS() {
   const { t, isRTL } = useLang();
@@ -21,6 +22,8 @@ export default function POS() {
   const [loading, setLoading] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [lastInvoice, setLastInvoice] = useState(null);
+  const invoiceRef = useRef();
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -317,23 +320,68 @@ export default function POS() {
       {/* Success Modal */}
       <AnimatePresence>
         {showInvoiceModal && lastInvoice && (
-          <div className="modal-overlay">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="modal-box max-w-sm overflow-hidden">
-              <div className="bg-gradient-to-br from-orange-500 to-red-600 p-8 text-center text-white">
-                <div className="w-20 h-20 bg-white/20 rounded-full flex-center mx-auto mb-4 border border-white/30 backdrop-blur-md">
-                  <Printer size={40} />
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ direction: 'rtl' }}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[2rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] shrink-0">
+                <div>
+                  <h2 className="text-xl font-black text-green-400">✓ {isRTL ? 'تمت العملية بنجاح' : 'Sale Completed!'}</h2>
+                  <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">{lastInvoice.invoiceNumber}</p>
                 </div>
-                <h3 className="text-2xl font-black mb-1 italic">SUCCESS!</h3>
-                <p className="text-white/70 text-xs font-bold uppercase tracking-widest">{isRTL ? 'تمت العملية بنجاح' : 'Sale Completed'}</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const printElement = document.getElementById('pos-print-area');
+                      if (!printElement) return;
+
+                      // Create temporary iframe for A4 printing
+                      const iframe = document.createElement('iframe');
+                      iframe.style.position = 'fixed';
+                      iframe.style.right = '0';
+                      iframe.style.bottom = '0';
+                      iframe.style.width = '0';
+                      iframe.style.height = '0';
+                      iframe.style.border = '0';
+                      document.body.appendChild(iframe);
+
+                      const doc = iframe.contentDocument || iframe.contentWindow.document;
+                      doc.open();
+                      doc.write(`
+                        <html>
+                          <head>
+                            <title>Print Invoice</title>
+                            <style>
+                              body { margin: 0; padding: 0; background: #fff; }
+                            </style>
+                          </head>
+                          <body onload="setTimeout(function(){ window.print(); window.parent.document.body.removeChild(window.frameElement); }, 500)">
+                            ${printElement.innerHTML}
+                          </body>
+                        </html>
+                      `);
+                      doc.close();
+                    }}
+                    className="btn btn-primary gap-2 h-12 px-6"
+                  >
+                    <Printer size={18} /> {isRTL ? 'طباعة الفاتورة' : 'Print Invoice'}
+                  </button>
+                  <button onClick={() => setShowInvoiceModal(false)} className="btn btn-secondary h-12 w-12 p-0">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
-              <div className="p-8 text-center">
-                <div className="mb-6">
-                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{isRTL ? 'رقم الفاتورة' : 'Invoice Number'}</div>
-                   <div className="text-xl font-mono font-black text-orange-500">{lastInvoice.invoiceNumber}</div>
-                </div>
-                <div className="space-y-3">
-                  <button onClick={() => window.print()} className="w-full h-14 bg-slate-900 text-white font-bold rounded-2xl flex-center gap-2 hover:bg-black transition-colors"><Printer size={18} /> {t('print')}</button>
-                  <button onClick={() => setShowInvoiceModal(false)} className="w-full h-14 bg-white border border-slate-200 text-slate-900 font-bold rounded-2xl transition-colors">{isRTL ? 'إغلاق' : 'Close'}</button>
+
+              {/* Invoice Preview */}
+              <div className="flex-1 overflow-auto bg-slate-200 p-4">
+                <div className="bg-white rounded-xl shadow-2xl mx-auto" style={{ maxWidth: '210mm' }}>
+                  <div id="pos-print-area">
+                    <ProfessionalInvoice ref={invoiceRef} sale={lastInvoice} />
+                  </div>
                 </div>
               </div>
             </motion.div>
