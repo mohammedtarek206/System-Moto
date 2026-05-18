@@ -65,6 +65,35 @@ export default function POS() {
   };
 
   const handleScanBarcode = async (barcode) => {
+    const cmd = barcode.trim().toUpperCase();
+
+    // 2D Scanner Command Codes
+    if (cmd === 'CMD-PAY' || cmd === 'CMD-CHECKOUT' || cmd === 'PAY') {
+      handleCheckout();
+      return;
+    }
+    if (cmd === 'CMD-CLEAR' || cmd === 'CLEAR') {
+      if (window.confirm(isRTL ? 'هل تريد إفراغ السلة وتصفير الفاتورة؟' : 'Clear current cart?')) {
+        resetPOS();
+      }
+      return;
+    }
+    if (cmd === 'CMD-CASH' || cmd === 'CASH') {
+      setPaymentMethod('cash');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى نقدي' : 'Payment method changed to Cash');
+      return;
+    }
+    if (cmd === 'CMD-CARD' || cmd === 'CARD') {
+      setPaymentMethod('card');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى فيزا / تحويل' : 'Payment method changed to Card');
+      return;
+    }
+    if (cmd === 'CMD-CREDIT' || cmd === 'CREDIT') {
+      setPaymentMethod('credit');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى آجل / قسط' : 'Payment method changed to Credit/Installment');
+      return;
+    }
+
     try {
       const res = await api.get(`/products/scan/${barcode}`);
       const product = res.data.data;
@@ -87,63 +116,103 @@ export default function POS() {
     }
   };
 
-  // Keyboard Shortcuts Hook
+  // Keyboard Shortcuts & Scanner Hook (Optimized for 2D Wired Scanners)
   useEffect(() => {
+    let keyTimes = [];
     let barcodeBuffer = '';
-    let lastKeyTime = Date.now();
 
     const handleKeyDown = (e) => {
       const currentTime = Date.now();
-      
-      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-      const timeDiff = currentTime - lastKeyTime;
-      const isScannerFast = timeDiff < 50; // Tolerant to slower scanner polling/decoding rates
 
-      if (isInputActive && !isScannerFast && !['F2', 'F9', 'F4', 'F8'].includes(e.key)) {
-        lastKeyTime = currentTime;
-        return;
-      }
-
-      if (timeDiff > 200) { // Tolerant to slight system delay/CPU lag between scanner keys
-        barcodeBuffer = '';
-      }
-
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.length > 2) {
-          e.preventDefault();
-          handleScanBarcode(barcodeBuffer.trim());
-          barcodeBuffer = '';
-          return;
-        }
-      }
-
-      if (e.key.length === 1) {
-        barcodeBuffer += e.key;
-      }
-
-      lastKeyTime = currentTime;
-
-      // Global POS Shortcuts
+      // Global POS Shortcuts (F-Keys & Escape)
       if (e.key === 'F2') {
         e.preventDefault();
         handleCheckout();
-      } else if (e.key === 'F9') {
+        return;
+      }
+      if (e.key === 'F9') {
         e.preventDefault();
         document.getElementById('posSearchInput')?.focus();
-      } else if (e.key === 'F4') {
+        return;
+      }
+      if (e.key === 'F4') {
         e.preventDefault();
         toggleFullScreen();
-      } else if (e.key === 'Escape') {
+        return;
+      }
+      if (e.key === 'Escape') {
         e.preventDefault();
         if (window.confirm(isRTL ? 'هل تريد إفراغ السلة وتصفير الفاتورة؟' : 'Clear current cart?')) {
           resetPOS();
         }
+        return;
       }
+
+      // Collect only single character typing and 'Enter' for barcode scanner buffering
+      if (e.key !== 'Enter' && e.key.length !== 1) {
+        return;
+      }
+
+      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      const lastKeyTime = keyTimes[keyTimes.length - 1] || 0;
+
+      // If the delay is more than 200ms, treat it as a new distinct scan or manual entry
+      if (lastKeyTime && (currentTime - lastKeyTime > 200)) {
+        barcodeBuffer = '';
+        keyTimes = [];
+      }
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.length > 2) {
+          let isScanner = false;
+          
+          if (keyTimes.length > 1) {
+            let totalDelay = 0;
+            for (let i = 1; i < keyTimes.length; i++) {
+              totalDelay += (keyTimes[i] - keyTimes[i - 1]);
+            }
+            const avgDelay = totalDelay / (keyTimes.length - 1);
+            // 2D USB/Wired scanners dump characters extremely fast (avg < 50ms per key)
+            if (avgDelay < 50) {
+              isScanner = true;
+            }
+          } else if (!isInputActive) {
+            // Fallback for scans without character timing tracking when not inside input
+            isScanner = true;
+          }
+
+          if (isScanner) {
+            e.preventDefault();
+
+            // Auto-clean active inputs to eliminate the scanner's typed characters immediately
+            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+              const el = document.activeElement;
+              el.value = '';
+              if (el.id === 'posSearchInput') {
+                setSearch('');
+              }
+            }
+
+            handleScanBarcode(barcodeBuffer.trim());
+            barcodeBuffer = '';
+            keyTimes = [];
+            return;
+          }
+        }
+
+        barcodeBuffer = '';
+        keyTimes = [];
+        return;
+      }
+
+      // Buffer the key and store the precise keystroke time
+      barcodeBuffer += e.key;
+      keyTimes.push(currentTime);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, selectedCustomer, discount, paidAmount, paymentMethod]);
+  }, [cart, selectedCustomer, discount, paidAmount, paymentMethod, products]);
 
   const addToCart = (product) => {
     if (product.quantity <= 0) {
@@ -482,40 +551,76 @@ export default function POS() {
         )}
       </AnimatePresence>
 
-      {/* Keyboard Shortcuts Help Modal */}
+      {/* Keyboard Shortcuts & 2D Scanner Commands Help Modal */}
       <AnimatePresence>
         {showShortcutsHelp && (
           <div className="modal-overlay z-50">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="modal-box max-w-md rounded-[2.5rem] bg-[var(--bg-card)] border border-[var(--border)] p-6"
+              className="modal-box max-w-lg rounded-[2.5rem] bg-[var(--bg-card)] border border-[var(--border)] p-6"
             >
               <div className="flex justify-between items-center pb-4 border-b border-[var(--border)]">
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                   <Keyboard className="text-orange-500" />
-                  {isRTL ? 'اختصارات الكيبورد السريعة' : 'POS Keyboard Shortcuts'}
+                  {isRTL ? 'مركز التحكم السريع (الكيبورد والماسح)' : 'POS Control Center (Keyboard & Scanner)'}
                 </h3>
                 <button onClick={() => setShowShortcutsHelp(false)} className="btn btn-ghost h-9 w-9 p-0 rounded-full"><X size={18} /></button>
               </div>
-              <div className="py-6 space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام الفاتورة والبيع' : 'Pay and complete checkout'}</span>
-                  <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-500">F2</kbd>
+
+              <div className="py-6 space-y-6 max-h-[60vh] overflow-y-auto pr-1">
+                {/* Keyboard Section */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 mb-3">{isRTL ? 'اختصارات لوحة المفاتيح' : 'Keyboard Shortcuts'}</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام الفاتورة والبيع' : 'Pay and complete checkout'}</span>
+                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-500">F2</kbd>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'التركيز على شريط البحث' : 'Focus search box'}</span>
+                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">F9</kbd>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تكبير / تصغير الشاشة الكاملة' : 'Toggle Fullscreen Mode'}</span>
+                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-purple-400">F4</kbd>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تصفير السلة / إلغاء' : 'Clear / reset cart'}</span>
+                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-500">ESC</kbd>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'التركيز على شريط البحث' : 'Focus search box'}</span>
-                  <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">F9</kbd>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تكبير / تصغير الشاشة الكاملة' : 'Toggle Fullscreen Mode'}</span>
-                  <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-purple-400">F4</kbd>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تصفير السلة / إلغاء' : 'Clear / reset cart'}</span>
-                  <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-500">ESC</kbd>
+
+                {/* 2D Scanner Command Codes Section */}
+                <div className="pt-4 border-t border-[var(--border)]/50">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-500 mb-3">{isRTL ? 'أكواد التحكم للماسح 2D (اطبعها ورشها بجانبك)' : '2D Scanner Command Codes (Print & Scan)'}</h4>
+                  <p className="text-[11px] text-[var(--text-muted)] mb-4">{isRTL ? 'يمكنك طباعة هذه الأكواد كملصقات باركود ومسحها بالماسح للتحكم الفوري دون لمس الماوس:' : 'Print these values as barcodes to trigger actions directly using your 2D scanner:'}</p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام ودفع الفاتورة فوراً' : 'Complete and process checkout'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-emerald-400">CMD-PAY</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تفريغ وتصفير سلة المشتريات' : 'Clear/Reset entire cart'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-400">CMD-CLEAR</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ كاش (نقدي)' : 'Switch payment method to Cash'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-400">CMD-CASH</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ فيزا (كارت)' : 'Switch payment method to Card'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">CMD-CARD</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ آجل / قسط' : 'Switch payment method to Credit/Installment'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-amber-400">CMD-CREDIT</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button onClick={() => setShowShortcutsHelp(false)} className="w-full btn btn-secondary h-12 rounded-2xl font-bold">{isRTL ? 'مفهوم' : 'Got it'}</button>
+              
+              <button onClick={() => setShowShortcutsHelp(false)} className="w-full btn btn-secondary h-12 rounded-2xl font-bold mt-4">{isRTL ? 'مفهوم' : 'Got it'}</button>
             </motion.div>
           </div>
         )}
