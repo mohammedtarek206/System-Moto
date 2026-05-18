@@ -15,19 +15,34 @@ export default function Products() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
+  // Debounce search input to avoid multiple concurrent API calls during fast scanning
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 150);
+    return () => clearTimeout(handler);
+  }, [search]);
+
   useEffect(() => {
     fetchProducts();
+  }, [debouncedSearch, categoryFilter]);
+
+  useEffect(() => {
     fetchCategories();
-  }, [search, categoryFilter]);
+  }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/products?search=${search}&category=${categoryFilter}`);
+      const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+      const cleanSearch = debouncedSearch.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
+
+      const res = await api.get(`/products?search=${cleanSearch}&category=${categoryFilter}`);
       setProducts(res.data.data);
     } catch (err) {
       toast.error(isRTL ? 'فشل تحميل المنتجات' : 'Failed to load products');
@@ -263,8 +278,22 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
               <input type="text" className="form-input" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})}/>
             </div>
             <div className="form-group">
-              <label className="form-label">{t('barcode')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري' : 'optional'})</span></label>
-              <div className="relative search-input">
+              <label className="form-label flex justify-between items-center w-full">
+                <span>{t('barcode')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري' : 'optional'})</span></span>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    const stamp = Date.now().toString().slice(-7);
+                    const rand = Math.floor(100 + Math.random() * 900).toString();
+                    setFormData({ ...formData, barcode: `${stamp}${rand}` });
+                    toast.success(isRTL ? 'تم توليد باركود رقمي نظيف!' : 'Clean numeric barcode generated!');
+                  }}
+                  className="text-xs text-orange-500 hover:text-orange-600 font-bold border border-dashed border-orange-500/30 px-1.5 py-0.5 rounded"
+                >
+                  {isRTL ? 'توليد باركود تلقائي' : 'Auto Generate'}
+                </button>
+              </label>
+              <div className="relative search-input w-full">
                 <Barcode className="search-icon" size={16} />
                 <input type="text" className="form-input" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})}/>
               </div>
