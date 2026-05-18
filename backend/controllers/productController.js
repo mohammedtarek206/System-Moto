@@ -58,7 +58,15 @@ exports.createProduct = async (req, res) => {
       data.sku = 'SKU-' + Date.now() + Math.floor(Math.random() * 1000);
     }
     if (!data.barcode || data.barcode.trim() === '') {
-      data.barcode = Date.now().toString() + Math.floor(Math.random() * 100).toString().padStart(2, '0');
+      let code;
+      let exists = true;
+      while (exists) {
+        // Generate a random 10-digit number starting with a non-zero digit
+        code = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+        const duplicate = await Product.findOne({ barcode: code });
+        if (!duplicate) exists = false;
+      }
+      data.barcode = code;
     }
 
     // Check if product already exists by barcode or sku or name

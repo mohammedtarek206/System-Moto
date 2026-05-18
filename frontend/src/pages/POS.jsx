@@ -97,14 +97,14 @@ export default function POS() {
       
       const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
       const timeDiff = currentTime - lastKeyTime;
-      const isScannerFast = timeDiff < 30;
+      const isScannerFast = timeDiff < 50; // Tolerant to slower scanner polling/decoding rates
 
       if (isInputActive && !isScannerFast && !['F2', 'F9', 'F4', 'F8'].includes(e.key)) {
         lastKeyTime = currentTime;
         return;
       }
 
-      if (timeDiff > 60) {
+      if (timeDiff > 200) { // Tolerant to slight system delay/CPU lag between scanner keys
         barcodeBuffer = '';
       }
 

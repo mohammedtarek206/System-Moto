@@ -99,11 +99,23 @@ exports.createPurchase = async (req, res) => {
         await product.save();
       } else {
         // Product doesn't exist -> create new product
+        let barcodeVal = item.barcode;
+        if (!barcodeVal || barcodeVal.trim() === '') {
+          let code;
+          let exists = true;
+          while (exists) {
+            code = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+            const duplicate = await Product.findOne({ barcode: code });
+            if (!duplicate) exists = false;
+          }
+          barcodeVal = code;
+        }
+
         product = new Product({
           name: item.name || 'منتج جديد',
           nameAr: item.nameAr || item.name || 'منتج جديد',
           sku: item.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          barcode: item.barcode || `BC-${Date.now()}`,
+          barcode: barcodeVal,
           buyPrice: buyP,
           sellPrice: sellP,
           quantity: itemQty,

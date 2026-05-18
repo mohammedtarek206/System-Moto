@@ -74,16 +74,21 @@ export default function BarcodePrint() {
             .print-grid {
               display: grid !important;
               grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-              gap: 8px !important;
+              gap: 12px !important;
             }
             .barcode-label {
               border: 1px solid #000 !important;
-              padding: 10px !important;
+              padding: 6px !important;
               background: white !important;
               color: black !important;
               break-inside: avoid;
               page-break-inside: avoid;
-              height: 120px !important;
+              height: 135px !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: center !important;
+              overflow: hidden !important;
             }
             @media print {
               body, body * {
@@ -175,22 +180,20 @@ export default function BarcodePrint() {
       <div className="flex-1 bg-white p-8 rounded-[2.5rem] print:rounded-none print:p-0 min-h-[500px] overflow-auto border border-[var(--border)] print:border-none print:m-0 print:shadow-none shadow-inner">
         <div ref={printComponentRef} className="print-grid grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 print:grid-cols-3 print:gap-2 auto-rows-max p-4 bg-white text-black">
           {selectedProduct ? [...Array(printQuantity)].map((_, i) => (
-            <div key={i} className="barcode-label border-2 border-black border-dashed p-4 flex flex-col items-center justify-center bg-white text-black text-center break-inside-avoid print:border-solid h-[150px] print:h-[120px] w-full overflow-hidden">
-              <div className="text-[10px] sm:text-xs font-bold leading-tight mb-1 truncate w-full">{isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}</div>
+            <div key={i} className="barcode-label border-2 border-black border-dashed p-3 flex flex-col items-center justify-center bg-white text-black text-center break-inside-avoid print:border-solid h-[160px] print:h-[135px] w-full overflow-hidden">
+              <div className="text-[11px] sm:text-xs font-bold leading-tight mb-1 truncate w-full">{isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}</div>
               <div className="font-black text-sm mb-1">{selectedProduct.sellPrice} {t('currency')}</div>
-              <div className="scale-75 origin-top mb-1">
-                <Barcode 
-                  value={selectedProduct.barcode || selectedProduct.sku} 
-                  format="CODE128"
-                  width={1.5}
-                  height={40}
-                  fontSize={14}
-                  background="#ffffff"
-                  lineColor="#000000"
-                  margin={0}
-                  displayValue={true}
-                />
-              </div>
+              <Barcode 
+                value={selectedProduct.barcode || selectedProduct.sku} 
+                format="CODE128"
+                width={1.4}
+                height={45}
+                fontSize={11}
+                background="#ffffff"
+                lineColor="#000000"
+                margin={8}
+                displayValue={true}
+              />
             </div>
           )) : (
             <div className="col-span-full h-full flex-center text-slate-300 print:hidden flex-col gap-4">
