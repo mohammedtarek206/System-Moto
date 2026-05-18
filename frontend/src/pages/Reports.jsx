@@ -46,7 +46,11 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="stat-card">
+           <div className="text-[var(--text-muted)] text-sm">{isRTL ? 'إجمالي قيمة المخزون (سعر الشراء)' : 'Total Inventory Value (Cost)'}</div>
+           <div className="text-2xl font-black mt-1 text-purple-400">{summary?.total_stock_cost || 0} {t('currency')}</div>
+        </div>
         <div className="stat-card">
            <div className="text-[var(--text-muted)] text-sm">{isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</div>
            <div className="text-2xl font-black mt-1 text-orange-500">{summary?.total_revenue || 0} {t('currency')}</div>

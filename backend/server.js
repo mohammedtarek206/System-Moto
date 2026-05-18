@@ -35,6 +35,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/sales', require('./routes/sales'));
+app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/dashboard', require('./routes/dashboard'));

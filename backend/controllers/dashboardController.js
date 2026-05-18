@@ -179,29 +179,36 @@ exports.getProfitReport = async (req, res) => {
     if (group_by === 'month') dateFormat = '%Y-%m';
     if (group_by === 'year') dateFormat = '%Y';
 
-    const report = await Sale.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: dateFormat, date: '$createdAt' } },
-          revenue: { $sum: '$total' },
-          cost: { $sum: { $multiply: [{ $sum: '$items.quantity' }, { $avg: '$items.buyPrice' }] } },
-          invoices: { $sum: 1 }
-        }
-      },
-      { $project: { 
-          period: '$_id', 
-          revenue: 1, 
-          cost: 1, 
-          invoices: 1, 
-          profit: { $subtract: ['$revenue', '$cost'] } 
-      }},
-      { $sort: { period: -1 } },
-      { $limit: 30 }
+    const [report, stockCostRes] = await Promise.all([
+      Sale.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: dateFormat, date: '$createdAt' } },
+            revenue: { $sum: '$total' },
+            cost: { $sum: { $multiply: [{ $sum: '$items.quantity' }, { $avg: '$items.buyPrice' }] } },
+            invoices: { $sum: 1 }
+          }
+        },
+        { $project: { 
+            period: '$_id', 
+            revenue: 1, 
+            cost: 1, 
+            invoices: 1, 
+            profit: { $subtract: ['$revenue', '$cost'] } 
+        }},
+        { $sort: { period: -1 } },
+        { $limit: 30 }
+      ]),
+      Product.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: null, totalStockCost: { $sum: { $multiply: ['$buyPrice', '$quantity'] } } } }
+      ])
     ]);
 
     const totalRevenue = report.reduce((acc, curr) => acc + curr.revenue, 0);
     const totalCost = report.reduce((acc, curr) => acc + curr.cost, 0);
+    const totalStockCost = stockCostRes[0]?.totalStockCost || 0;
 
     res.json({
       success: true,
@@ -210,6 +217,7 @@ exports.getProfitReport = async (req, res) => {
         total_revenue: totalRevenue,
         total_cost: totalCost,
         total_profit: totalRevenue - totalCost,
+        total_stock_cost: totalStockCost
       }
     });
   } catch (err) {
