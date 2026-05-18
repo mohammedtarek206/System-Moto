@@ -75,7 +75,7 @@ export default function BarcodePrint() {
       widthPx: 151,
       heightPx: 75,
       barcodeHeight: 18,
-      barcodeWidth: 1.0,
+      barcodeWidth: 1.2,
       nameSize: 8,
       priceSize: 10,
       skuSize: 7,
@@ -139,7 +139,7 @@ export default function BarcodePrint() {
 
     // Define size CSS properties for sandboxed page
     const sizeCss = selectedSize === 'micro'
-      ? '40mm 20mm'
+      ? '40mm 20mm landscape'
       : selectedSize === 'small' 
         ? '40mm 30mm' 
         : selectedSize === 'medium' 
@@ -254,13 +254,13 @@ export default function BarcodePrint() {
                   gap: 8px;
                 ">
                   <!-- Barcode SVG Render (Vector) -->
-                  <div class="barcode-svg" style="display: flex; justify-content: center; align-items: center;">
+                  <div class="barcode-svg" style="display: flex; justify-content: center; align-items: center; width: 100%;">
                     <!-- Rendered SVG inline copy -->
                     ${document.querySelector('.print-preview-barcode svg')?.outerHTML || ''}
                   </div>
                   
                   <!-- QR Code SVG Render (Vector) -->
-                  ${showQR && document.querySelector('.print-preview-qr svg') ? `
+                  ${showQR && selectedSize !== 'micro' && document.querySelector('.print-preview-qr svg') ? `
                     <div style="display: flex; justify-content: center; align-items: center;">
                       ${document.querySelector('.print-preview-qr svg').outerHTML}
                     </div>
@@ -523,11 +523,11 @@ export default function BarcodePrint() {
                 {/* 3. Barcode and optional QR Row */}
                 <div className="flex justify-center items-center w-full gap-2 shrink-0">
                   {/* Vector SVG Barcode */}
-                  <div className="print-preview-barcode flex justify-center items-center shrink-0">
+                  <div className={`print-preview-barcode flex justify-center items-center shrink-0 ${selectedSize === 'micro' ? 'w-full' : ''}`}>
                     <Barcode 
                       value={selectedProduct.barcode || selectedProduct.sku} 
                       format="CODE128"
-                      width={currentConfig.barcodeWidth}
+                      width={selectedSize === 'micro' ? 1.25 : currentConfig.barcodeWidth}
                       height={currentConfig.barcodeHeight}
                       fontSize={8}
                       background="#ffffff"
@@ -538,7 +538,7 @@ export default function BarcodePrint() {
                   </div>
 
                   {/* Vector QR Code SVG */}
-                  {showQR && (
+                  {showQR && selectedSize !== 'micro' && (
                     <div className="print-preview-qr flex justify-center items-center shrink-0">
                       <QRCodeSVG 
                         value={selectedProduct.barcode || selectedProduct.sku}
