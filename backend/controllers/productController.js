@@ -100,10 +100,24 @@ exports.createProduct = async (req, res) => {
 exports.scanBarcode = async (req, res) => {
   try {
     const { barcode } = req.params;
-    const product = await Product.findOne({ barcode });
-    if (!product) return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
+    const cleanBarcode = barcode.trim();
+    
+    // Find product matching either barcode or SKU (case-insensitive)
+    const product = await Product.findOne({
+      $or: [
+        { barcode: { $regex: new RegExp(`^${cleanBarcode}$`, 'i') } },
+        { sku: { $regex: new RegExp(`^${cleanBarcode}$`, 'i') } }
+      ]
+    });
+    
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'المنتج غير موجود في قاعدة البيانات بهذا الباركود أو الرمز (SKU)' });
+    }
+    
     res.json({ success: true, data: product });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ success: false, message: err.message }); 
+  }
 };
 
 exports.updateProduct = async (req, res) => {

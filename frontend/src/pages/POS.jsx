@@ -120,8 +120,14 @@ export default function POS() {
       const res = await api.get(`/products/scan/${cleanBarcode}`);
       const product = res.data.data;
       addToCart(product);
+      toast.success(isRTL ? `تم إضافة المنتج: ${product.nameAr || product.name}` : `Added product: ${product.name}`);
     } catch (err) {
-      toast.error(isRTL ? 'المنتج غير موجود' : 'Product not found');
+      console.error('POS Barcode Scan Fail:', err);
+      const errMsg = err.response?.data?.message || err.message;
+      toast.error(isRTL 
+        ? `الماسح التقط كود (${cleanBarcode}) ولكن: ${errMsg}` 
+        : `Scanner read (${cleanBarcode}) but: ${errMsg}`
+      );
     }
   };
 
@@ -217,13 +223,25 @@ export default function POS() {
         return;
       }
 
+      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      const lastKeyTime = keyTimes[keyTimes.length - 1] || 0;
+
+      // Smart redirection for scanner input:
+      // If we see high speed typing (delay < 50ms) and we are not in the main search input,
+      // redirect the focus to the search box instantly!
+      if (lastKeyTime && (currentTime - lastKeyTime < 50)) {
+        if (isInputActive && document.activeElement.id !== 'posSearchInput') {
+          const activeEl = document.activeElement;
+          activeEl.blur();
+          document.getElementById('posSearchInput')?.focus();
+        }
+      }
+
       // Clear any pending automatic submission timeout
       if (scanTimeout) {
         clearTimeout(scanTimeout);
         scanTimeout = null;
       }
-
-      const lastKeyTime = keyTimes[keyTimes.length - 1] || 0;
 
       // If the delay is more than 200ms, treat it as a new distinct scan or manual entry
       if (lastKeyTime && (currentTime - lastKeyTime > 200)) {
