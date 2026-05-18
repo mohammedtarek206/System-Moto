@@ -30,6 +30,7 @@ export default function POS() {
   const [recentSales, setRecentSales] = useState([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const invoiceRef = useRef();
 
