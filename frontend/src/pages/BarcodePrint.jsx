@@ -20,7 +20,7 @@ export default function BarcodePrint() {
   const [printQuantity, setPrintQuantity] = useState(1);
   
   // Custom Thermal Label Configurations
-  const [selectedSize, setSelectedSize] = useState('medium'); // small (40x30), medium (50x30), large (60x40)
+  const [selectedSize, setSelectedSize] = useState('micro'); // micro (40x20), small (40x30), medium (50x30), large (60x40)
   const [showQR, setShowQR] = useState(false);
   const [includeSku, setIncludeSku] = useState(true);
   const [includePrice, setIncludePrice] = useState(true);
@@ -69,6 +69,18 @@ export default function BarcodePrint() {
 
   // Setup dimension labels & styling based on selectedSize
   const labelConfig = {
+    micro: {
+      widthMm: 40,
+      heightMm: 20,
+      widthPx: 151,
+      heightPx: 75,
+      barcodeHeight: 18,
+      barcodeWidth: 1.0,
+      nameSize: 8,
+      priceSize: 10,
+      skuSize: 7,
+      margin: 1
+    },
     small: {
       widthMm: 40,
       heightMm: 30,
@@ -126,14 +138,16 @@ export default function BarcodePrint() {
     const doc = iframe.contentWindow.document;
 
     // Define size CSS properties for sandboxed page
-    const sizeCss = selectedSize === 'small' 
-      ? '40mm 30mm' 
-      : selectedSize === 'medium' 
-        ? '50mm 30mm' 
-        : '60mm 40mm';
+    const sizeCss = selectedSize === 'micro'
+      ? '40mm 20mm'
+      : selectedSize === 'small' 
+        ? '40mm 30mm' 
+        : selectedSize === 'medium' 
+          ? '50mm 30mm' 
+          : '60mm 40mm';
 
-    const widthCss = selectedSize === 'small' ? '40mm' : selectedSize === 'medium' ? '50mm' : '60mm';
-    const heightCss = selectedSize === 'small' ? '30mm' : selectedSize === 'medium' ? '30mm' : '40mm';
+    const widthCss = selectedSize === 'micro' ? '40mm' : selectedSize === 'small' ? '40mm' : selectedSize === 'medium' ? '50mm' : '60mm';
+    const heightCss = selectedSize === 'micro' ? '20mm' : selectedSize === 'small' ? '30mm' : selectedSize === 'medium' ? '30mm' : '40mm';
 
     doc.open();
     doc.write(`
@@ -339,8 +353,9 @@ export default function BarcodePrint() {
             <LayoutGrid size={16} className="text-orange-500" />
             {isRTL ? 'مقاس ملصق طابعة Xprinter' : 'Select Label Sticker Size'}
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
+              { id: 'micro', label: '40x20 mm', labelAr: '٤٠×٢٠ مم', desc: 'صغير جداً (Micro)' },
               { id: 'small', label: '40x30 mm', labelAr: '٤٠×٣٠ مم', desc: 'للقطع الصغيرة' },
               { id: 'medium', label: '50x30 mm', labelAr: '٥٠×٣٠ مم', desc: 'المقاس المعتاد' },
               { id: 'large', label: '60x40 mm', labelAr: '٦٠×٤٠ مم', desc: 'للقطع الكبيرة' }
