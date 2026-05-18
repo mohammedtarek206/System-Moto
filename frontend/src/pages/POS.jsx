@@ -65,7 +65,10 @@ export default function POS() {
   };
 
   const handleScanBarcode = async (barcode) => {
-    const cmd = barcode.trim().toUpperCase();
+    // Convert Arabic eastern numerals (١٢٣٤٥٦٧٨٩٠) to English standard numerals (1234567890)
+    const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    let cleanBarcode = barcode.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
+    const cmd = cleanBarcode.toUpperCase();
 
     // 2D Scanner Command Codes
     if (cmd === 'CMD-PAY' || cmd === 'CMD-CHECKOUT' || cmd === 'PAY') {
@@ -95,7 +98,7 @@ export default function POS() {
     }
 
     try {
-      const res = await api.get(`/products/scan/${barcode}`);
+      const res = await api.get(`/products/scan/${cleanBarcode}`);
       const product = res.data.data;
       addToCart(product);
     } catch (err) {
@@ -116,10 +119,52 @@ export default function POS() {
     }
   };
 
-  // Keyboard Shortcuts & Scanner Hook (Optimized for 2D Wired Scanners)
+  // Keyboard Shortcuts & Scanner Hook (Optimized for 2D Wired Scanners with Fallback for no-Enter models)
   useEffect(() => {
     let keyTimes = [];
     let barcodeBuffer = '';
+    let scanTimeout = null;
+
+    // Auto-focus search box on mount to ensure scanner catches input instantly
+    setTimeout(() => {
+      document.getElementById('posSearchInput')?.focus();
+    }, 400);
+
+    const processScan = (buffer, times) => {
+      if (buffer.length > 2) {
+        let isScanner = false;
+        const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+        
+        if (times.length > 1) {
+          let totalDelay = 0;
+          for (let i = 1; i < times.length; i++) {
+            totalDelay += (times[i] - times[i - 1]);
+          }
+          const avgDelay = totalDelay / (times.length - 1);
+          // Scanner average speed is extremely fast (<50ms per key)
+          if (avgDelay < 50) {
+            isScanner = true;
+          }
+        } else if (!isInputActive) {
+          isScanner = true;
+        }
+
+        if (isScanner) {
+          // Auto-clean active inputs to eliminate the scanner's typed characters immediately
+          if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            const el = document.activeElement;
+            el.value = '';
+            if (el.id === 'posSearchInput') {
+              setSearch('');
+            }
+          }
+
+          handleScanBarcode(buffer.trim());
+        }
+      }
+      barcodeBuffer = '';
+      keyTimes = [];
+    };
 
     const handleKeyDown = (e) => {
       const currentTime = Date.now();
@@ -153,7 +198,12 @@ export default function POS() {
         return;
       }
 
-      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      // Clear any pending automatic submission timeout
+      if (scanTimeout) {
+        clearTimeout(scanTimeout);
+        scanTimeout = null;
+      }
+
       const lastKeyTime = keyTimes[keyTimes.length - 1] || 0;
 
       // If the delay is more than 200ms, treat it as a new distinct scan or manual entry
@@ -163,55 +213,27 @@ export default function POS() {
       }
 
       if (e.key === 'Enter') {
-        if (barcodeBuffer.length > 2) {
-          let isScanner = false;
-          
-          if (keyTimes.length > 1) {
-            let totalDelay = 0;
-            for (let i = 1; i < keyTimes.length; i++) {
-              totalDelay += (keyTimes[i] - keyTimes[i - 1]);
-            }
-            const avgDelay = totalDelay / (keyTimes.length - 1);
-            // 2D USB/Wired scanners dump characters extremely fast (avg < 50ms per key)
-            if (avgDelay < 50) {
-              isScanner = true;
-            }
-          } else if (!isInputActive) {
-            // Fallback for scans without character timing tracking when not inside input
-            isScanner = true;
-          }
-
-          if (isScanner) {
-            e.preventDefault();
-
-            // Auto-clean active inputs to eliminate the scanner's typed characters immediately
-            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-              const el = document.activeElement;
-              el.value = '';
-              if (el.id === 'posSearchInput') {
-                setSearch('');
-              }
-            }
-
-            handleScanBarcode(barcodeBuffer.trim());
-            barcodeBuffer = '';
-            keyTimes = [];
-            return;
-          }
-        }
-
-        barcodeBuffer = '';
-        keyTimes = [];
+        e.preventDefault();
+        processScan(barcodeBuffer, keyTimes);
         return;
       }
 
       // Buffer the key and store the precise keystroke time
       barcodeBuffer += e.key;
       keyTimes.push(currentTime);
+
+      // Set a timeout to automatically submit the scan if no keys are typed for 50ms.
+      // This is crucial for hardware scanners that do NOT send an 'Enter' or 'Tab' suffix!
+      scanTimeout = setTimeout(() => {
+        processScan(barcodeBuffer, keyTimes);
+      }, 50);
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (scanTimeout) clearTimeout(scanTimeout);
+    };
   }, [cart, selectedCustomer, discount, paidAmount, paymentMethod, products]);
 
   const addToCart = (product) => {
