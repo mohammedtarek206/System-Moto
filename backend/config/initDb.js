@@ -25,6 +25,31 @@ const initializeDatabase = async () => {
       await Settings.create({});
     }
 
+    // Auto-migrate products with unreadable/alphanumeric/dense barcodes to clean 10-digit numeric barcodes!
+    const Product = require('../models/Product');
+    const productsToUpdate = await Product.find({
+      $or: [
+        { barcode: { $regex: /[a-zA-Z]/ } }, // Contains letters (like old 'BC-')
+        { barcode: { $regex: /^.{11,}$/ } }, // Extremely long/dense unreadable ones (like 15-digit timestamps)
+        { barcode: { $regex: /^.{1,9}$/ } },  // Too short barcodes
+        { barcode: { $exists: false } },
+        { barcode: '' }
+      ]
+    });
+
+    if (productsToUpdate.length > 0) {
+      console.log(`🔧 Migrating ${productsToUpdate.length} products to clean 10-digit barcodes for perfect scanner readability...`);
+      let index = 0;
+      for (const p of productsToUpdate) {
+        index++;
+        const stamp = (Date.now() + index).toString().slice(-7);
+        const rand = Math.floor(100 + Math.random() * 900).toString();
+        p.barcode = `${stamp}${rand}`;
+        await p.save();
+      }
+      console.log('✅ Product barcode migration completed successfully.');
+    }
+
     // Smart Categories Seeding
     const defaultCategories = [
       { name: 'Engine Parts', nameAr: 'قطع المحرك', icon: '⚙️', color: '#ef4444' },

@@ -41,7 +41,26 @@ export default function POS() {
   const fetchProducts = async () => {
     try {
       const res = await api.get(`/products?search=${search}&limit=10000`);
-      setProducts(res.data.data);
+      const list = res.data.data;
+      setProducts(list);
+
+      // SMART AUTO-ADD SCANNER FALLBACK!
+      // If the search text exactly matches a product's barcode or SKU, add it to the cart instantly!
+      if (search && search.trim().length >= 3) {
+        const query = search.trim();
+        const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        const cleanQuery = query.replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d)).toUpperCase();
+        
+        const exactMatch = list.find(p => 
+          (p.barcode && p.barcode.toUpperCase() === cleanQuery) || 
+          (p.sku && p.sku.toUpperCase() === cleanQuery)
+        );
+        
+        if (exactMatch) {
+          addToCart(exactMatch);
+          setSearch(''); // Clear the search input instantly!
+        }
+      }
     } catch {}
   };
 

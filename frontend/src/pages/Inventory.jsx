@@ -93,16 +93,17 @@ export default function Inventory() {
     }
   };
 
-  // Quick SKU/Barcode Generator helpers
+  // Quick SKU/Barcode Generator helpers (10-digit high-readability numeric barcodes)
   const generateSKUAndBarcode = () => {
-    const stamp = Date.now().toString().slice(-6);
-    const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const stamp = Date.now().toString().slice(-7);
+    const rand = Math.floor(100 + Math.random() * 900).toString();
+    const cleanBarcode = `${stamp}${rand}`;
     setNewProduct(prev => ({
       ...prev,
       sku: `MOTO-${stamp}-${rand}`,
-      barcode: `BC-${stamp}${rand}`
+      barcode: cleanBarcode
     }));
-    toast.success(isRTL ? 'تم توليد الرموز تلقائياً' : 'Codes generated successfully');
+    toast.success(isRTL ? 'تم توليد باركود رقمي نظيف (10 أرقام) للتوافق التام مع قارئ الباركود!' : 'Clean numeric 10-digit barcode generated for perfect scanner compatibility!');
   };
 
   // Submit Tab 3: Top-up stock
@@ -186,8 +187,21 @@ export default function Inventory() {
           <style>
             @page { size: auto; margin: 3mm; }
             body { background: white !important; color: black !important; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-            .print-grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px !important; }
-            .barcode-label { border: 1px solid #000 !important; padding: 8px !important; background: white !important; color: black !important; break-inside: avoid; page-break-inside: avoid; height: 110px !important; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+            .print-grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; }
+            .barcode-label { 
+              border: 1.5px solid #000000 !important; 
+              padding: 6px !important; 
+              background: white !important; 
+              color: black !important; 
+              break-inside: avoid; 
+              page-break-inside: avoid; 
+              height: 135px !important; 
+              display: flex !important; 
+              flex-direction: column !important; 
+              align-items: center !important; 
+              justify-content: center !important; 
+              text-align: center !important; 
+            }
             @media print { body, body * { visibility: visible !important; } .print-grid, .print-grid *, .barcode-label, .barcode-label * { visibility: visible !important; } }
           </style>
         </head>
@@ -691,23 +705,23 @@ export default function Inventory() {
                 >
                   {selectedPrintProduct ? (
                     [...Array(printQuantity)].map((_, i) => (
-                      <div key={i} className="barcode-label border border-dashed border-slate-300 p-3 bg-white text-black break-inside-avoid">
-                        <div className="text-[10px] font-bold truncate leading-tight w-full mb-0.5 text-slate-800">
+                      <div key={i} className="barcode-label border border-dashed border-slate-300 p-3 bg-white text-black break-inside-avoid flex flex-col items-center justify-center min-h-[145px]">
+                        <div className="text-[11px] font-extrabold truncate leading-tight w-full mb-0.5 text-slate-900">
                           {selectedPrintProduct.nameAr || selectedPrintProduct.name}
                         </div>
-                        <div className="text-xs font-black text-slate-900 mb-1">
+                        <div className="text-xs font-black text-slate-900 mb-1.5">
                           {selectedPrintProduct.sellPrice.toFixed(2)} EGP
                         </div>
-                        <div className="scale-75 origin-top shrink-0">
+                        <div className="w-full flex justify-center shrink-0">
                           <Barcode 
                             value={selectedPrintProduct.barcode || selectedPrintProduct.sku} 
                             format="CODE128"
-                            width={1.2}
-                            height={35}
-                            fontSize={10}
+                            width={1.4}
+                            height={45}
+                            fontSize={11}
                             background="#ffffff"
                             lineColor="#000000"
-                            margin={0}
+                            margin={8}
                             displayValue={true}
                           />
                         </div>
