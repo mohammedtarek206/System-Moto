@@ -18,6 +18,7 @@ import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import BarcodePrint from './pages/BarcodePrint';
+import Installments from './pages/Installments';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
                 <Route path="/barcodes" element={<BarcodePrint />} />
                 <Route path="/pos" element={<POS />} />
                 <Route path="/sales" element={<Sales />} />
+                <Route path="/installments" element={<Installments />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/suppliers" element={<Suppliers />} />
                 <Route path="/purchases" element={<Purchases />} />

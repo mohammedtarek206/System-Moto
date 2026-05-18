@@ -4,7 +4,7 @@ import { useLang } from '../contexts/LangContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Monitor, Users, Truck,
-  Warehouse, BarChart3, Settings, X, ChevronRight, Barcode, ShoppingBag
+  Warehouse, BarChart3, Settings, X, ChevronRight, Barcode, ShoppingBag, Wallet
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { key: 'barcodes', path: '/barcodes', icon: Barcode, roles: ['admin','warehouse'] },
   { key: 'pos', path: '/pos', icon: Monitor, roles: ['admin','cashier'] },
   { key: 'sales', path: '/sales', icon: ShoppingCart, roles: ['admin','cashier'] },
+  { key: 'installments', path: '/installments', icon: Wallet, roles: ['admin','cashier'] },
   { key: 'customers', path: '/customers', icon: Users, roles: ['admin','cashier'] },
   { key: 'suppliers', path: '/suppliers', icon: Truck, roles: ['admin'] },
   { key: 'purchases', path: '/purchases', icon: ShoppingBag, roles: ['admin'] },

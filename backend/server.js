@@ -8,6 +8,7 @@ const path = require('path');
 const { testConnection } = require('./config/db');
 const initializeDatabase = require('./config/initDb');
 const { checkLowStock } = require('./controllers/settingsController');
+const { checkOverdueInstallments } = require('./controllers/installmentController');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/installments', require('./routes/installments'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -66,9 +68,12 @@ const startServer = async () => {
     // Check low stock every hour (only run timers if not in serverless Vercel function)
     if (!process.env.VERCEL) {
       setInterval(checkLowStock, 60 * 60 * 1000);
+      setInterval(checkOverdueInstallments, 60 * 60 * 1000);
       checkLowStock(); // run on startup
+      checkOverdueInstallments(); // run on startup
     } else {
       checkLowStock().catch(e => console.error('Low stock check error:', e));
+      checkOverdueInstallments().catch(e => console.error('Overdue installments check error:', e));
     }
     app.listen(PORT, () => {
       console.log(`\n🏍️  Moto Parts Server running on port ${PORT}`);

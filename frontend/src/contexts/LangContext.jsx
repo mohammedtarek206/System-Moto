@@ -6,7 +6,7 @@ const translations = {
   ar: {
     // Nav
     dashboard: 'لوحة التحكم', products: 'المنتجات', sales: 'المبيعات', barcodes: 'طباعة الباركود',
-    pos: 'الكاشير', customers: 'العملاء', suppliers: 'الموردين', purchases: 'المشتريات',
+    pos: 'الكاشير', installments: 'نظام التقسيط', customers: 'العملاء', suppliers: 'الموردين', purchases: 'المشتريات',
     inventory: 'المخزن', reports: 'التقارير', settings: 'الإعدادات',
     notifications: 'الإشعارات', users: 'المستخدمين', logout: 'تسجيل الخروج',
     // Common
@@ -40,7 +40,7 @@ const translations = {
   },
   en: {
     dashboard: 'Dashboard', products: 'Products', sales: 'Sales', barcodes: 'Barcodes',
-    pos: 'POS Cashier', customers: 'Customers', suppliers: 'Suppliers', purchases: 'Purchases',
+    pos: 'POS Cashier', installments: 'Installments', customers: 'Customers', suppliers: 'Suppliers', purchases: 'Purchases',
     inventory: 'Inventory', reports: 'Reports', settings: 'Settings',
     notifications: 'Notifications', users: 'Users', logout: 'Logout',
     add: 'Add', edit: 'Edit', delete: 'Delete', save: 'Save', cancel: 'Cancel',
