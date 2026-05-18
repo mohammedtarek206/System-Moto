@@ -29,31 +29,41 @@ export default function POS() {
   const [showSalesDrawer, setShowSalesDrawer] = useState(false);
   const [recentSales, setRecentSales] = useState([]);
   const [salesLoading, setSalesLoading] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const invoiceRef = useRef();
 
+  // Debounce search to eliminate high-speed scanner API race conditions
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 150);
+    return () => clearTimeout(handler);
+  }, [search]);
+
   useEffect(() => {
     fetchProducts();
+  }, [debouncedSearch]);
+
+  useEffect(() => {
     fetchCustomers();
-  }, [search]);
+  }, []);
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get(`/products?search=${search}&limit=10000`);
+      const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+      const cleanSearch = debouncedSearch.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
+
+      const res = await api.get(`/products?search=${cleanSearch}&limit=10000`);
       const list = res.data.data;
       setProducts(list);
 
       // SMART AUTO-ADD SCANNER FALLBACK!
       // If the search text exactly matches a product's barcode or SKU, add it to the cart instantly!
-      if (search && search.trim().length >= 3) {
-        const query = search.trim();
-        const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-        const cleanQuery = query.replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d)).toUpperCase();
-        
+      if (cleanSearch && cleanSearch.length >= 3) {
         const exactMatch = list.find(p => 
-          (p.barcode && p.barcode.toUpperCase() === cleanQuery) || 
-          (p.sku && p.sku.toUpperCase() === cleanQuery)
+          (p.barcode && p.barcode.toUpperCase() === cleanSearch.toUpperCase()) || 
+          (p.sku && p.sku.toUpperCase() === cleanSearch.toUpperCase())
         );
         
         if (exactMatch) {
@@ -215,6 +225,11 @@ export default function POS() {
         if (window.confirm(isRTL ? 'هل تريد إفراغ السلة وتصفير الفاتورة؟' : 'Clear current cart?')) {
           resetPOS();
         }
+        return;
+      }
+
+      // If already focused on the search box, let native typing and the debounced search fetch handle it!
+      if (document.activeElement?.id === 'posSearchInput') {
         return;
       }
 
