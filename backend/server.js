@@ -63,9 +63,13 @@ const startServer = async () => {
   try {
     await testConnection();
     await initializeDatabase();
-    // Check low stock every hour
-    setInterval(checkLowStock, 60 * 60 * 1000);
-    checkLowStock(); // run on startup
+    // Check low stock every hour (only run timers if not in serverless Vercel function)
+    if (!process.env.VERCEL) {
+      setInterval(checkLowStock, 60 * 60 * 1000);
+      checkLowStock(); // run on startup
+    } else {
+      checkLowStock().catch(e => console.error('Low stock check error:', e));
+    }
     app.listen(PORT, () => {
       console.log(`\n🏍️  Moto Parts Server running on port ${PORT}`);
       console.log(`📡  API: http://localhost:${PORT}/api`);
@@ -74,8 +78,18 @@ const startServer = async () => {
     });
   } catch (err) {
     console.error('❌ Failed to start server:', err.message);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 };
 
-startServer();
+// Start server if not running as a Vercel Serverless Function
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  // On Vercel, connect to DB immediately in background
+  testConnection().catch(e => console.error('Vercel DB connection error:', e));
+}
+
+module.exports = app;

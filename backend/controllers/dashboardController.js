@@ -186,7 +186,20 @@ exports.getProfitReport = async (req, res) => {
           $group: {
             _id: { $dateToString: { format: dateFormat, date: '$createdAt' } },
             revenue: { $sum: '$total' },
-            cost: { $sum: { $multiply: [{ $sum: '$items.quantity' }, { $avg: '$items.buyPrice' }] } },
+            cost: {
+              $sum: {
+                $ifNull: [
+                  '$totalCost',
+                  {
+                    $reduce: {
+                      input: '$items',
+                      initialValue: 0,
+                      in: { $add: ['$$value', { $multiply: [{ $ifNull: ['$$this.quantity', 0] }, { $ifNull: ['$$this.buyPrice', 0] }] }] }
+                    }
+                  }
+                ]
+              }
+            },
             invoices: { $sum: 1 }
           }
         },
