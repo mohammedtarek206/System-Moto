@@ -25,18 +25,25 @@ const initializeDatabase = async () => {
       await Settings.create({});
     }
 
-    // Default Categories
-    const categoriesExist = await Category.findOne();
-    if (!categoriesExist) {
-      const categories = [
-        { name: 'Engine Parts', nameAr: 'قطع المحرك', icon: '⚙️', color: '#ef4444' },
-        { name: 'Brakes', nameAr: 'الفرامل', icon: '🔴', color: '#f97316' },
-        { name: 'Electrical', nameAr: 'الكهرباء', icon: '⚡', color: '#eab308' },
-        { name: 'Body Parts', nameAr: 'قطع الهيكل', icon: '🏍️', color: '#3b82f6' },
-        { name: 'Filters', nameAr: 'الفلاتر', icon: '🔧', color: '#8b5cf6' },
-        { name: 'Tires & Wheels', nameAr: 'الإطارات والعجلات', icon: '🔵', color: '#06b6d4' },
-      ];
-      await Category.insertMany(categories);
+    // Smart Categories Seeding
+    const defaultCategories = [
+      { name: 'Engine Parts', nameAr: 'قطع المحرك', icon: '⚙️', color: '#ef4444' },
+      { name: 'Brakes', nameAr: 'الفرامل', icon: '🔴', color: '#f97316' },
+      { name: 'Electrical', nameAr: 'الكهرباء', icon: '⚡', color: '#eab308' },
+      { name: 'Body Parts', nameAr: 'قطع الهيكل', icon: '🏍️', color: '#3b82f6' },
+      { name: 'Filters', nameAr: 'الفلاتر', icon: '🔧', color: '#8b5cf6' },
+      { name: 'Tires & Wheels', nameAr: 'الإطارات والعجلات', icon: '🔵', color: '#06b6d4' },
+      { name: 'Oils & Lubricants', nameAr: 'الزيوت والشحوم', icon: '🛢️', color: '#10b981' },
+      { name: 'Helmets & Safety', nameAr: 'الخوذه والامان', icon: '🪖', color: '#6b7280' },
+      { name: 'Accessories & Extras', nameAr: 'كماليات واكسسوارات', icon: '✨', color: '#ec4899' }
+    ];
+
+    for (const cat of defaultCategories) {
+      const exists = await Category.findOne({ nameAr: cat.nameAr });
+      if (!exists) {
+        await Category.create(cat);
+        console.log(`➕ Added missing category: ${cat.nameAr}`);
+      }
     }
 
     console.log('✅ Database initialization completed');
