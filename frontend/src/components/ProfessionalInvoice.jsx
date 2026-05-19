@@ -575,6 +575,10 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
             </div>
             <div className="font-mono">{customerServicePhone}</div>
           </div>
+
+          <div style={{ marginTop: '10px', fontSize: '0.75em', fontWeight: '800', opacity: 0.8, borderTop: '1px dashed #000', paddingTop: '5px' }}>
+            Powered & Developed By ARQAM
+          </div>
         </div>
 
       </div>
