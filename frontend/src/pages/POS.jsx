@@ -10,6 +10,42 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 import ProfessionalInvoice from '../components/ProfessionalInvoice';
 
+// Browser-native Web Audio API Sound Synthesizer (No external assets required!)
+const playSound = (type) => {
+  try {
+    const isSuccessSoundEnabled = localStorage.getItem('barcode_sound_success') !== 'false';
+    const isFailSoundEnabled = localStorage.getItem('barcode_sound_fail') !== 'false';
+    
+    if (type === 'success' && !isSuccessSoundEnabled) return;
+    if (type === 'fail' && !isFailSoundEnabled) return;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === 'success') {
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime); // Realistic high-frequency beep
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.08);
+    } else {
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(130, audioCtx.currentTime); // Solid buzz error sound
+      gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.35);
+    }
+  } catch (e) {
+    console.error("Web Audio API blocked or not supported:", e);
+  }
+};
+
 export default function POS() {
   const { t, isRTL } = useLang();
   const [products, setProducts] = useState([]);
@@ -33,6 +69,23 @@ export default function POS() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const invoiceRef = useRef();
+
+  // Custom Receipt & Printer Configurations
+  const [paperSize, setPaperSize] = useState(() => localStorage.getItem('receipt_paper_size') || '80mm');
+  const [autoPrint, setAutoPrint] = useState(() => localStorage.getItem('receipt_auto_print') === 'true');
+
+  // Periodic Auto-Focus to keep cursor in the barcode/search input at all times!
+  useEffect(() => {
+    const focusInterval = setInterval(() => {
+      const active = document.activeElement;
+      const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName);
+      // If no input is active, auto-refocus our search input to keep keyboard wedges operational!
+      if (!isInputActive) {
+        document.getElementById('posSearchInput')?.focus();
+      }
+    }, 1500); // Check every 1.5s
+    return () => clearInterval(focusInterval);
+  }, []);
 
   // Debounce search to eliminate high-speed scanner API race conditions
   useEffect(() => {
@@ -102,26 +155,31 @@ export default function POS() {
 
     // 2D Scanner Command Codes
     if (cmd === 'CMD-PAY' || cmd === 'CMD-CHECKOUT' || cmd === 'PAY') {
+      playSound('success');
       handleCheckout();
       return;
     }
     if (cmd === 'CMD-CLEAR' || cmd === 'CLEAR') {
+      playSound('success');
       if (window.confirm(isRTL ? 'هل تريد إفراغ السلة وتصفير الفاتورة؟' : 'Clear current cart?')) {
         resetPOS();
       }
       return;
     }
     if (cmd === 'CMD-CASH' || cmd === 'CASH') {
+      playSound('success');
       setPaymentMethod('cash');
       toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى نقدي' : 'Payment method changed to Cash');
       return;
     }
     if (cmd === 'CMD-CARD' || cmd === 'CARD') {
+      playSound('success');
       setPaymentMethod('card');
       toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى فيزا / تحويل' : 'Payment method changed to Card');
       return;
     }
     if (cmd === 'CMD-CREDIT' || cmd === 'CREDIT') {
+      playSound('success');
       setPaymentMethod('credit');
       toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى آجل / قسط' : 'Payment method changed to Credit/Installment');
       return;
@@ -130,9 +188,14 @@ export default function POS() {
     try {
       const res = await api.get(`/products/scan/${cleanBarcode}`);
       const product = res.data.data;
-      addToCart(product);
-      toast.success(isRTL ? `تم إضافة المنتج: ${product.nameAr || product.name}` : `Added product: ${product.name}`);
+      if (product) {
+        addToCart(product);
+      } else {
+        playSound('fail');
+        toast.error(isRTL ? 'المنتج غير مسجل في النظام' : 'Product not registered in system');
+      }
     } catch (err) {
+      playSound('fail');
       console.error('POS Barcode Scan Fail:', err);
       const errMsg = err.response?.data?.message || err.message;
       toast.error(isRTL 
@@ -211,14 +274,24 @@ export default function POS() {
         handleCheckout();
         return;
       }
-      if (e.key === 'F9') {
+      if (e.key === 'F9' || e.key === 'F4') {
         e.preventDefault();
         document.getElementById('posSearchInput')?.focus();
         return;
       }
-      if (e.key === 'F4') {
+      if (e.key === 'F11') {
         e.preventDefault();
         toggleFullScreen();
+        return;
+      }
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        if (cart.length > 0) {
+          const lastItem = cart[cart.length - 1];
+          removeFromCart(lastItem.productId);
+          playSound('success');
+          toast.success(isRTL ? 'تم حذف آخر صنف من السلة' : 'Removed last item from cart');
+        }
         return;
       }
       if (e.key === 'Escape') {
@@ -291,16 +364,19 @@ export default function POS() {
 
   const addToCart = (product) => {
     if (product.quantity <= 0) {
-      toast.error(isRTL ? 'المنتج غير متوفر في المخزن' : 'Product out of stock');
+      playSound('fail');
+      toast.error(isRTL ? 'الكمية غير متاحة بالمخزن' : 'Product out of stock');
       return;
     }
     const existing = cart.find(item => item.productId === product._id);
     if (existing) {
       if (existing.quantity >= product.quantity) {
-        toast.error(isRTL ? 'الكمية المتاحة نفدت' : 'Max quantity reached');
+        playSound('fail');
+        toast.error(isRTL ? 'الكمية غير متاحة بالمخزن' : 'Max quantity reached');
         return;
       }
       setCart(cart.map(item => item.productId === product._id ? { ...item, quantity: item.quantity + 1 } : item));
+      playSound('success');
       toast.success(isRTL ? 'تم زيادة الكمية' : 'Quantity increased');
     } else {
       setCart([...cart, { 
@@ -311,6 +387,7 @@ export default function POS() {
         quantity: 1, 
         stock: product.quantity 
       }]);
+      playSound('success');
       toast.success(isRTL ? 'تم إضافة المنتج' : 'Product added');
     }
   };
@@ -355,6 +432,38 @@ export default function POS() {
       setLastInvoice(res.data.data);
       setShowInvoiceModal(true);
       resetPOS();
+
+      // Automatic print execution upon sales completion
+      const isAutoPrint = localStorage.getItem('receipt_auto_print') === 'true';
+      if (isAutoPrint) {
+        setTimeout(() => {
+          const printElement = document.getElementById('pos-print-area');
+          if (printElement) {
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0'; iframe.style.bottom = '0';
+            iframe.style.width = '0'; iframe.style.height = '0'; iframe.style.border = '0';
+            document.body.appendChild(iframe);
+
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(`
+              <html>
+                <head>
+                  <title>Print Invoice</title>
+                  <style>
+                    body { margin: 0; padding: 0; background: #fff; }
+                  </style>
+                </head>
+                <body onload="setTimeout(function(){ window.print(); window.parent.document.body.removeChild(window.frameElement); }, 500)">
+                  ${printElement.innerHTML}
+                </body>
+              </html>
+            `);
+            doc.close();
+          }
+        }, 800);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error');
     } finally {
@@ -567,7 +676,7 @@ export default function POS() {
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
               className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[2rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
             >
-              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] shrink-0">
+              <div className="flex flex-wrap items-center justify-between p-5 border-b border-[var(--border)] shrink-0 gap-4">
                 <div>
                   <h2 className="text-xl font-black text-green-400 flex items-center gap-2">
                     <CheckCircle />
@@ -575,6 +684,44 @@ export default function POS() {
                   </h2>
                   <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">{lastInvoice.invoiceNumber}</p>
                 </div>
+                
+                {/* Real-time Receipt Print Settings Panel */}
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Paper Size selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[var(--text-muted)]">{isRTL ? 'عرض ريسيت الطابعة:' : 'Receipt Width:'}</span>
+                    <select
+                      className="form-input h-10 py-1 px-3 text-xs font-bold bg-[var(--bg-card2)] border-[var(--border)] rounded-xl text-white outline-none cursor-pointer focus:border-orange-500"
+                      value={paperSize}
+                      onChange={(e) => {
+                        setPaperSize(e.target.value);
+                        localStorage.setItem('receipt_paper_size', e.target.value);
+                      }}
+                    >
+                      <option value="80mm">80 مم (POS Printer)</option>
+                      <option value="58mm">58 مم (Mini Printer)</option>
+                    </select>
+                  </div>
+
+                  {/* Auto Print Checkbox */}
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--text-muted)] select-none">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-[var(--border)] text-orange-500 focus:ring-orange-500 bg-transparent"
+                      checked={autoPrint}
+                      onChange={(e) => {
+                        setAutoPrint(e.target.checked);
+                        localStorage.setItem('receipt_auto_print', e.target.checked ? 'true' : 'false');
+                        toast.success(e.target.checked 
+                          ? (isRTL ? 'تم تفعيل الطباعة التلقائية' : 'Auto print enabled') 
+                          : (isRTL ? 'تم إلغاء الطباعة التلقائية' : 'Auto print disabled')
+                        );
+                      }}
+                    />
+                    {isRTL ? 'طباعة تلقائية بعد البيع' : 'Auto Print After Sale'}
+                  </label>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
@@ -614,11 +761,10 @@ export default function POS() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto bg-slate-200 p-4">
-                <div className="bg-white rounded-xl shadow-2xl mx-auto" style={{ maxWidth: '210mm' }}>
-                  <div id="pos-print-area">
-                    <ProfessionalInvoice ref={invoiceRef} sale={lastInvoice} />
-                  </div>
+              {/* High-fidelity visual physical paper preview pane */}
+              <div className="flex-1 overflow-auto bg-slate-900 p-6 flex justify-center items-start">
+                <div id="pos-print-area">
+                  <ProfessionalInvoice ref={invoiceRef} sale={lastInvoice} receiptWidth={paperSize} />
                 </div>
               </div>
             </motion.div>

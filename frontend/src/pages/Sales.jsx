@@ -27,6 +27,7 @@ export default function Sales() {
   });
 
   const invoiceRef = useRef();
+  const [paperSize, setPaperSize] = useState(() => localStorage.getItem('receipt_paper_size') || '80mm');
   
   const handlePrint = useReactToPrint({
     content: () => invoiceRef.current,
@@ -178,14 +179,14 @@ export default function Sales() {
               exit={{ y: 50, opacity: 0 }} 
               className="modal-box max-w-4xl p-0 overflow-hidden shadow-2xl bg-[#f8fafc]"
             >
-              <div className="p-4 bg-white border-b flex justify-between items-center no-print sticky top-0 z-10 shadow-sm">
-                <div className="flex gap-2">
+              <div className="p-4 bg-white border-b flex flex-wrap justify-between items-center no-print sticky top-0 z-10 shadow-sm gap-4">
+                <div className="flex flex-wrap items-center gap-3">
                   <button 
                     onClick={() => {
                       const printElement = document.getElementById('sales-print-area');
                       if (!printElement) return;
 
-                      // Create temporary iframe for A4 printing
+                      // Create temporary iframe for paper receipt printing
                       const iframe = document.createElement('iframe');
                       iframe.style.position = 'fixed';
                       iframe.style.right = '0';
@@ -212,24 +213,39 @@ export default function Sales() {
                       `);
                       doc.close();
                     }}
-                    className="btn bg-slate-900 text-white gap-2 h-10 px-4 rounded-xl hover:bg-black"
+                    className="btn bg-slate-900 text-white gap-2 h-10 px-4 rounded-xl hover:bg-black font-bold"
                   >
-                    <Printer size={18} /> {isRTL ? 'طباعة' : 'Print'}
+                    <Printer size={18} /> {isRTL ? 'طباعة الفاتورة' : 'Print Receipt'}
                   </button>
-                  <button onClick={handleDownloadPDF} className="btn btn-secondary gap-2 h-10 px-4 rounded-xl">
+                  <button onClick={handleDownloadPDF} className="btn btn-secondary gap-2 h-10 px-4 rounded-xl font-bold">
                     <FileDown size={18} /> {isRTL ? 'تحميل PDF' : 'Download PDF'}
                   </button>
                 </div>
+
+                {/* Real-time Receipt settings toggle inside Sales Log */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500">{isRTL ? 'عرض ريسيت الطابعة:' : 'Receipt Width:'}</span>
+                  <select
+                    className="h-10 py-1 px-3 text-xs font-bold bg-slate-100 border border-slate-200 rounded-xl text-slate-800 outline-none cursor-pointer focus:border-slate-500"
+                    value={paperSize}
+                    onChange={(e) => {
+                      setPaperSize(e.target.value);
+                      localStorage.setItem('receipt_paper_size', e.target.value);
+                    }}
+                  >
+                    <option value="80mm">80 مم (POS Printer)</option>
+                    <option value="58mm">58 مم (Mini Printer)</option>
+                  </select>
+                </div>
+
                 <button onClick={() => setSelectedSale(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                   <X size={20} />
                 </button>
               </div>
               
-              <div className="p-4 md:p-8 bg-slate-200/30 overflow-y-auto max-h-[80vh]">
-                <div className="bg-white shadow-xl mx-auto max-w-[210mm] min-h-[297mm]">
-                  <div id="sales-print-area">
-                    <ProfessionalInvoice ref={invoiceRef} sale={selectedSale} />
-                  </div>
+              <div className="p-6 bg-slate-900 overflow-y-auto max-h-[75vh] flex justify-center items-start">
+                <div id="sales-print-area">
+                  <ProfessionalInvoice ref={invoiceRef} sale={selectedSale} receiptWidth={paperSize} />
                 </div>
               </div>
             </motion.div>

@@ -1,451 +1,583 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import JsBarcode from 'jsbarcode';
+import api from '../lib/api';
 
-const ProfessionalInvoice = forwardRef(({ sale }, ref) => {
+const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
+  const [settings, setSettings] = useState(null);
+  const barcodeRef = useRef(null);
+
+  // Fetch shop settings for dynamic store branding with professional fallbacks
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/settings');
+        if (res.data.data) {
+          setSettings(res.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load settings in receipt:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // Generate vector-sharp invoice barcode
+  useEffect(() => {
+    if (barcodeRef.current && sale?.invoiceNumber) {
+      try {
+        JsBarcode(barcodeRef.current, sale.invoiceNumber, {
+          format: "CODE128",
+          width: 1.3,
+          height: 35,
+          displayValue: true,
+          fontSize: 9,
+          font: "monospace",
+          textMargin: 2,
+          background: "transparent",
+          lineColor: "#000000"
+        });
+      } catch (e) {
+        console.error("JsBarcode generation failed:", e);
+      }
+    }
+  }, [sale]);
+
   if (!sale) return null;
+
+  // Global paper size configuration (80mm or 58mm)
+  const paperSize = receiptWidth || localStorage.getItem('receipt_paper_size') || '80mm';
+
+  // Fallbacks matched to "النسر" shop details from prompt & attached receipt mockups
+  const shopName = settings?.shopNameAr || 'النسر';
+  const shopSub = settings?.shopName ? 'لقطع غيار الموتوسيكلات' : 'لقطع غيار الموتوسيكلات';
+  const shopPhone = settings?.shopPhone || '01234567890';
+  const customerServicePhone = settings?.shopPhone || '01234567890';
+  const shopAddress = settings?.shopAddress || 'جمهورية - بجوار محطة البنزين - القاهرة';
+
+  // Calculation formatting
+  const fmt = (n) => Number(n || 0).toFixed(2);
 
   const subtotal = sale.items?.reduce((s, i) => s + (i.sellPrice * i.quantity), 0) || 0;
   const totalQty  = sale.items?.reduce((s, i) => s + i.quantity, 0) || 0;
   const discount  = sale.discount || 0;
-  const tax       = sale.tax || 0;
-  const finalTotal = sale.totalAmount || sale.total || 0;
+  
+  // Tax calculations: handle dynamic tax from settings rate or sale property
+  const taxRate = settings?.taxRate || sale.taxRate || 14; 
+  const taxAmount = sale.tax || (subtotal * (taxRate / 100));
+  const finalTotal = sale.totalAmount || sale.total || (subtotal - discount + taxAmount);
+  
   const paid      = sale.paidAmount || finalTotal;
   const change    = Math.max(0, paid - finalTotal);
 
-  const paymentLabels = { cash: 'نقدي', card: 'بطاقة', transfer: 'تحويل', credit: 'آجل' };
-
-  const fmt = (n) => Number(n || 0).toFixed(2);
-
+  // Formatting dates & times in Arabic local format
   const invoiceDate = new Date(sale.createdAt || Date.now());
-  const dateStr = invoiceDate.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = invoiceDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = invoiceDate.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const timeStr = invoiceDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
 
   return (
     <>
-      {/* ======= PRINT STYLES ======= */}
+      {/* ======= PREMIUM THERMAL RECEIPT STYLES ======= */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 
-        .pro-invoice-root, .pro-invoice-root * {
+        .thermal-receipt-root, .thermal-receipt-root * {
           box-sizing: border-box;
           margin: 0;
           padding: 0;
-          font-family: 'Cairo', sans-serif;
+          font-family: 'Cairo', 'Courier New', Courier, monospace, sans-serif;
           letter-spacing: normal !important;
           word-spacing: normal !important;
         }
 
-        .pro-invoice-root {
-          background: #fff;
-          color: #1a1a2e;
-          width: 210mm;
-          min-height: 297mm;
+        /* Screen Preview Styling: Rendered as a physical paper invoice */
+        .thermal-receipt-root {
+          background: #ffffff;
+          color: #000000;
           margin: 0 auto;
-          padding: 10mm 12mm;
           direction: rtl;
+          border: 1px solid #e5e7eb;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transition: all 0.3s ease;
         }
 
+        /* Fluid sizing to scale between standard printer rolls */
+        .thermal-receipt-root.size-80mm {
+          width: 80mm;
+          min-height: 140mm;
+          padding: 6mm 4mm;
+          font-size: 11px;
+        }
+
+        .thermal-receipt-root.size-58mm {
+          width: 58mm;
+          min-height: 100mm;
+          padding: 4mm 2mm;
+          font-size: 9px;
+        }
+
+        /* --- Logo & Header --- */
+        .receipt-header {
+          text-align: center;
+          margin-bottom: 8px;
+        }
+        
+        .receipt-logo-svg {
+          display: block;
+          margin: 0 auto 4px auto;
+          fill: #000000;
+        }
+
+        .size-80mm .receipt-logo-svg {
+          width: 65px;
+          height: 42px;
+        }
+
+        .size-58mm .receipt-logo-svg {
+          width: 48px;
+          height: 32px;
+        }
+
+        .receipt-shop-name {
+          font-weight: 900;
+          color: #000000;
+          line-height: 1.1;
+          margin-bottom: 2px;
+        }
+        
+        .size-80mm .receipt-shop-name {
+          font-size: 18px;
+        }
+
+        .size-58mm .receipt-shop-name {
+          font-size: 14px;
+        }
+
+        .receipt-shop-sub {
+          font-weight: 700;
+          opacity: 0.85;
+          margin-bottom: 6px;
+        }
+
+        .size-80mm .receipt-shop-sub {
+          font-size: 10px;
+        }
+
+        .size-58mm .receipt-shop-sub {
+          font-size: 8px;
+        }
+
+        /* --- Commercial Dash Dividers --- */
+        .receipt-divider {
+          border-top: 1px dashed #000000;
+          margin: 6px 0;
+          width: 100%;
+          height: 0;
+        }
+
+        .receipt-title {
+          text-align: center;
+          font-weight: 800;
+          text-transform: uppercase;
+          margin: 4px 0;
+          letter-spacing: 1px;
+        }
+
+        .size-80mm .receipt-title {
+          font-size: 13px;
+        }
+
+        .size-58mm .receipt-title {
+          font-size: 10px;
+        }
+
+        /* --- Metadata Table --- */
+        .receipt-meta-grid {
+          margin: 6px 0;
+          width: 100%;
+        }
+
+        .receipt-meta-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 3px;
+          line-height: 1.3;
+        }
+
+        .receipt-meta-label {
+          font-weight: 600;
+          color: #000000;
+        }
+
+        .receipt-meta-value {
+          font-weight: 800;
+          text-align: left;
+        }
+
+        /* --- Items Table --- */
+        .receipt-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 6px 0;
+        }
+
+        .receipt-table th {
+          border-bottom: 1px dashed #000000;
+          font-weight: 800;
+          padding: 4px 2px;
+          text-align: right;
+        }
+
+        .receipt-table td {
+          padding: 5px 2px;
+          vertical-align: top;
+          text-align: right;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        .receipt-table tbody tr {
+          border-bottom: 1px dotted #e0e0e0;
+        }
+
+        .receipt-table tbody tr:last-child {
+          border-bottom: none;
+        }
+
+        /* Fixed column alignments and spacing */
+        .col-idx { width: 6%; text-align: center !important; font-weight: 600; }
+        .col-name { width: 44%; font-weight: 700; line-height: 1.2; }
+        .col-code { width: 14%; font-family: monospace; text-align: center !important; font-size: 0.9em; }
+        .col-qty { width: 10%; text-align: center !important; font-weight: 800; }
+        .col-price { width: 12%; text-align: center !important; }
+        .col-total { width: 14%; text-align: left !important; font-weight: 800; }
+
+        .receipt-item-details {
+          font-size: 0.85em;
+          opacity: 0.7;
+          font-weight: 600;
+          margin-top: 1px;
+        }
+
+        /* --- Accounting Summary --- */
+        .receipt-totals-box {
+          margin: 6px 0;
+          width: 100%;
+        }
+
+        .receipt-totals-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 3px 0;
+          font-weight: 600;
+        }
+
+        .receipt-totals-row.grand-total {
+          border-top: 1px dashed #000000;
+          border-bottom: 1px dashed #000000;
+          margin-top: 4px;
+          padding: 6px 0;
+          font-weight: 900;
+        }
+
+        .size-80mm .receipt-totals-row.grand-total {
+          font-size: 15px;
+        }
+
+        .size-58mm .receipt-totals-row.grand-total {
+          font-size: 12px;
+        }
+
+        .receipt-totals-row.grand-total span:last-child {
+          border-bottom: 2px double #000000;
+        }
+
+        /* --- Footer & Identifiers --- */
+        .receipt-footer {
+          text-align: center;
+          margin-top: 10px;
+        }
+
+        .receipt-thank {
+          font-weight: 800;
+          margin-bottom: 2px;
+        }
+
+        .size-80mm .receipt-thank { font-size: 12px; }
+        .size-58mm .receipt-thank { font-size: 9.5px; }
+
+        .receipt-visit {
+          font-size: 0.9em;
+          opacity: 0.8;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+
+        .receipt-qr-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin: 8px 0;
+        }
+
+        .receipt-qr-text {
+          font-size: 0.85em;
+          opacity: 0.8;
+          margin-top: 3px;
+          font-weight: 700;
+        }
+
+        .receipt-contact-details {
+          font-size: 0.85em;
+          font-weight: 700;
+          line-height: 1.4;
+          margin-top: 6px;
+          border-top: 1px dotted #000000;
+          padding-top: 4px;
+        }
+
+        /* ======= PURE BLACK & WHITE HIGH-CONTRAST PRINT STYLES ======= */
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 10mm;
+            size: auto;
+            margin: 0 !important;
           }
 
           html, body {
-            background: white !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            overflow: hidden !important;
           }
 
-          .pro-invoice-root {
+          .no-print {
+            display: none !important;
+          }
+
+          .thermal-receipt-root {
             width: 100% !important;
-            min-height: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
+            max-width: 100% !important;
             box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 2mm 1mm !important;
+            margin: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
           }
 
-          .no-print { display: none !important; }
-          .page-break { page-break-before: always; }
-        }
+          .receipt-divider {
+            border-top: 1px dashed #000000 !important;
+          }
 
-        /* ---- Header ---- */
-        .inv-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 3px solid #e63946;
-          padding-bottom: 8px;
-          margin-bottom: 10px;
+          .receipt-totals-row.grand-total {
+            border-top: 1px dashed #000000 !important;
+            border-bottom: 1px dashed #000000 !important;
+          }
         }
-        .inv-logo { width: 70px; height: 70px; object-fit: contain; border-radius: 8px; }
-        .inv-shop-center { text-align: center; flex: 1; padding: 0 12px; }
-        .inv-shop-name { font-size: 22px; font-weight: 900; color: #e63946; line-height: 1.2; }
-        .inv-shop-sub { font-size: 11px; color: #555; margin-top: 2px; }
-        .inv-shop-contact { font-size: 10px; color: #777; margin-top: 4px; }
-
-        /* ---- Meta Row ---- */
-        .inv-meta {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          margin: 10px 0;
-        }
-        .inv-meta-box {
-          background: #f8f9fa;
-          border: 1px solid #e9ecef;
-          border-radius: 8px;
-          padding: 8px 12px;
-        }
-        .inv-meta-title {
-          font-size: 10px;
-          font-weight: 800;
-          color: #aaa;
-          text-transform: uppercase;
-          margin-bottom: 6px;
-          border-bottom: 1px solid #e9ecef;
-          padding-bottom: 4px;
-        }
-        .inv-meta-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          margin-bottom: 3px;
-          color: #333;
-        }
-        .inv-meta-label { color: #888; font-weight: 600; }
-        .inv-meta-value { font-weight: 700; }
-        .inv-inv-num { font-size: 14px; font-weight: 900; color: #e63946; }
-
-        /* ---- Table ---- */
-        .inv-table-wrapper {
-          margin: 10px 0;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .inv-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 11px;
-        }
-        .inv-table thead tr {
-          background: #1a1a2e;
-          color: #fff;
-        }
-        .inv-table th {
-          padding: 8px 10px;
-          text-align: right;
-          font-weight: 700;
-          font-size: 10px;
-        }
-        .inv-table td {
-          padding: 7px 10px;
-          border-bottom: 1px solid #f0f0f0;
-          vertical-align: middle;
-          text-align: right;
-          font-size: 11px;
-        }
-        .inv-table tbody tr:last-child td { border-bottom: none; }
-        .inv-table tbody tr:nth-child(even) { background: #fafafa; }
-        .inv-table tbody tr:hover { background: #fff8f0; }
-        .inv-product-name { font-weight: 700; color: #1a1a2e; }
-        .inv-product-sku  { font-size: 9px; color: #aaa; font-family: monospace; }
-        .inv-num-col      { text-align: center !important; }
-        .inv-total-cell   { font-weight: 800; color: #e63946; }
-
-        /* ---- Totals + QR ---- */
-        .inv-bottom {
-          display: grid;
-          grid-template-columns: 1fr 200px;
-          gap: 12px;
-          margin-top: 10px;
-          align-items: start;
-        }
-        .inv-totals-box {
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        .inv-totals-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 6px 12px;
-          font-size: 11px;
-          border-bottom: 1px solid #f0f0f0;
-          color: #555;
-        }
-        .inv-totals-row:last-child { border-bottom: none; }
-        .inv-totals-row.discount { color: #e63946; }
-        .inv-totals-row.grand {
-          background: #1a1a2e;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 900;
-          padding: 10px 12px;
-        }
-        .inv-totals-row.grand span:last-child { color: #f97316; }
-        .inv-totals-row.paid-row { background: #f0fff4; color: #2d6a4f; font-weight: 700; }
-        .inv-totals-row.change-row { background: #fff8f0; color: #d4a017; font-weight: 700; }
-
-        /* ---- QR & Notes ---- */
-        .inv-right-col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
-        .inv-qr-box {
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          padding: 10px;
-          text-align: center;
-          width: 100%;
-        }
-        .inv-qr-label { font-size: 9px; color: #aaa; margin-top: 4px; font-weight: 600; }
-
-        /* ---- Notes & Footer ---- */
-        .inv-notes {
-          margin-top: 10px;
-          padding: 8px 12px;
-          background: #fff8f0;
-          border: 1px solid #ffe0b2;
-          border-radius: 8px;
-          font-size: 10px;
-          color: #7c5c00;
-        }
-        .inv-notes-title { font-weight: 800; margin-bottom: 4px; color: #e65100; }
-
-        .inv-signature-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          margin-top: 12px;
-        }
-        .inv-signature-box {
-          border-top: 1px dashed #ccc;
-          padding-top: 6px;
-          text-align: center;
-          font-size: 10px;
-          color: #aaa;
-        }
-
-        .inv-footer {
-          margin-top: 14px;
-          text-align: center;
-          border-top: 2px solid #e63946;
-          padding-top: 8px;
-        }
-        .inv-thank { font-size: 14px; font-weight: 900; color: #e63946; }
-        .inv-footer-sub { font-size: 9px; color: #aaa; margin-top: 2px; }
-
-        .inv-badge {
-          display: inline-block;
-          padding: 2px 8px;
-          border-radius: 20px;
-          font-size: 10px;
-          font-weight: 700;
-        }
-        .inv-badge-cash     { background: #e8f5e9; color: #2e7d32; }
-        .inv-badge-card     { background: #e3f2fd; color: #1565c0; }
-        .inv-badge-transfer { background: #f3e5f5; color: #6a1b9a; }
-        .inv-badge-credit   { background: #fff3e0; color: #e65100; }
       `}</style>
 
-      {/* ======= INVOICE CONTENT ======= */}
-      <div ref={ref} className="pro-invoice-root">
+      {/* ======= THERMAL INVOICE CONTAINER ======= */}
+      <div ref={ref} className={`thermal-receipt-root size-${paperSize}`}>
+        
+        {/* ===== LOGO & HEADER SECTION ===== */}
+        <div className="receipt-header">
+          {/* Custom vector wings + motorcycle + cog gear SVG logo for pure sharp thermal prints */}
+          <svg viewBox="0 0 100 60" className="receipt-logo-svg">
+            {/* Left Wing */}
+            <path d="M 35 25 C 20 25, 10 15, 5 30 C 12 35, 20 30, 35 28 Z" />
+            <path d="M 32 30 C 18 31, 12 24, 8 36 C 14 39, 22 35, 32 33 Z" />
+            <path d="M 29 35 C 16 37, 14 32, 11 41 C 17 43, 23 39, 29 37 Z" />
+            
+            {/* Right Wing */}
+            <path d="M 65 25 C 80 25, 90 15, 95 30 C 88 35, 80 30, 65 28 Z" />
+            <path d="M 68 30 C 82 31, 88 24, 92 36 C 86 39, 78 35, 68 33 Z" />
+            <path d="M 71 35 C 84 37, 86 32, 89 41 C 83 43, 77 39, 71 37 Z" />
 
-          {/* ===== HEADER ===== */}
-          <div className="inv-header">
-            <img src="/photo_2026-05-12_22-56-52.jpg" alt="logo-right" className="inv-logo" />
+            {/* Central Gear / Cog Wheel */}
+            <circle cx="50" cy="30" r="14" fill="none" stroke="#000000" strokeWidth="2.5" />
+            <g transform="translate(50, 30)">
+              {[...Array(8)].map((_, i) => (
+                <rect key={i} x="-2" y="-16.5" width="4" height="3" transform={`rotate(${i * 45})`} />
+              ))}
+            </g>
+            <circle cx="50" cy="30" r="11" fill="#ffffff" />
+            
+            {/* Central Motorcycle Silhouette */}
+            <g transform="translate(41.5, 24) scale(0.17)">
+              {/* Wheels */}
+              <circle cx="10" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="3" />
+              <circle cx="10" cy="30" r="2" />
+              <circle cx="90" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="3" />
+              <circle cx="90" cy="30" r="2" />
+              {/* Chassis / Frame */}
+              <path d="M 10 30 L 40 30 L 60 12 L 90 30 L 75 12" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M 40 30 L 48 10 L 70 10 L 60 30 Z" />
+              {/* Handlebars */}
+              <path d="M 75 12 L 68 2" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
+              <path d="M 68 2 L 58 2" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" />
+              {/* Seat */}
+              <path d="M 30 18 L 52 18" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
+            </g>
+          </svg>
 
-            <div className="inv-shop-center">
-              <div className="inv-shop-name">على بركة الله</div>
-              <div className="inv-shop-sub">متخصصون في قطع غيار الموتوسيكلات</div>
-              <div className="inv-shop-contact">📞 ٠١٠٩٥٣٩٢٩٢٩ / ٠١١١١١٧٥٠٩٩ &nbsp;|&nbsp; 📍 الحي الغربي بعد مجمع المحاكم</div>
-            </div>
-
-            <img src="/photo_2026-05-18_01-04-37.jpg" alt="logo-left" className="inv-logo" />
-          </div>
-
-          {/* ===== META: INVOICE INFO + CUSTOMER ===== */}
-          <div className="inv-meta">
-            {/* Invoice Info */}
-            <div className="inv-meta-box">
-              <div className="inv-meta-title">بيانات الفاتورة</div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">رقم الفاتورة</span>
-                <span className="inv-inv-num">{sale.invoiceNumber}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">التاريخ</span>
-                <span className="inv-meta-value">{dateStr}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">الوقت</span>
-                <span className="inv-meta-value">{timeStr}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">الكاشير</span>
-                <span className="inv-meta-value">{sale.user?.name || 'النظام'}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">طريقة الدفع</span>
-                <span className={`inv-badge inv-badge-${sale.paymentMethod || 'cash'}`}>
-                  {paymentLabels[sale.paymentMethod] || 'نقدي'}
-                </span>
-              </div>
-            </div>
-
-            {/* Customer Info */}
-            <div className="inv-meta-box">
-              <div className="inv-meta-title">بيانات العميل</div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">الاسم</span>
-                <span className="inv-meta-value">{sale.customer?.name || 'عميل نقدي'}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">الهاتف</span>
-                <span className="inv-meta-value">{sale.customer?.phone || '—'}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">العنوان</span>
-                <span className="inv-meta-value">{sale.customer?.address || '—'}</span>
-              </div>
-              <div className="inv-meta-row" style={{ marginTop: '8px' }}>
-                <span className="inv-meta-label">عدد الأصناف</span>
-                <span className="inv-meta-value" style={{ color: '#e63946', fontWeight: 900 }}>{sale.items?.length || 0}</span>
-              </div>
-              <div className="inv-meta-row">
-                <span className="inv-meta-label">إجمالي الكمية</span>
-                <span className="inv-meta-value" style={{ color: '#e63946', fontWeight: 900 }}>{totalQty} قطعة</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ===== ITEMS TABLE ===== */}
-          <div className="inv-table-wrapper">
-            <table className="inv-table">
-              <thead>
-                <tr>
-                  <th className="inv-num-col" style={{ width: '32px' }}>م</th>
-                  <th>اسم الصنف / المنتج</th>
-                  <th style={{ width: '90px' }}>كود المنتج</th>
-                  <th className="inv-num-col" style={{ width: '70px' }}>سعر البيع</th>
-                  <th className="inv-num-col" style={{ width: '50px' }}>الكمية</th>
-                  <th className="inv-num-col" style={{ width: '80px' }}>الإجمالي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sale.items?.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="inv-num-col" style={{ fontWeight: 700, color: '#aaa' }}>{idx + 1}</td>
-                    <td>
-                      <div className="inv-product-name">
-                        {item.product?.nameAr || item.product?.name || item.name || item.nameAr || '—'}
-                      </div>
-                      <div className="inv-product-sku">{item.product?.sku || '—'}</div>
-                    </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '10px', color: '#666' }}>
-                      {item.product?.sku || item.product?.barcode || '—'}
-                    </td>
-                    <td className="inv-num-col">{fmt(item.sellPrice)}</td>
-                    <td className="inv-num-col" style={{ fontWeight: 800 }}>{item.quantity}</td>
-                    <td className="inv-num-col inv-total-cell">{fmt(item.sellPrice * item.quantity)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ===== BOTTOM: TOTALS + QR ===== */}
-          <div className="inv-bottom">
-            {/* Totals */}
-            <div className="inv-totals-box">
-              <div className="inv-totals-row">
-                <span>إجمالي المنتجات ({sale.items?.length || 0} صنف)</span>
-                <span style={{ fontWeight: 700 }}>{fmt(subtotal)} ج.م</span>
-              </div>
-              <div className="inv-totals-row">
-                <span>إجمالي الكمية</span>
-                <span style={{ fontWeight: 700 }}>{totalQty} قطعة</span>
-              </div>
-              <div className="inv-totals-row">
-                <span>إجمالي قبل الخصم</span>
-                <span style={{ fontWeight: 700 }}>{fmt(subtotal)} ج.م</span>
-              </div>
-              {discount > 0 && (
-                <div className="inv-totals-row discount">
-                  <span>خصم</span>
-                  <span style={{ fontWeight: 800 }}>- {fmt(discount)} ج.م</span>
-                </div>
-              )}
-              {tax > 0 && (
-                <div className="inv-totals-row">
-                  <span>ضريبة</span>
-                  <span style={{ fontWeight: 700 }}>{fmt(tax)} ج.م</span>
-                </div>
-              )}
-              <div className="inv-totals-row grand">
-                <span>الإجمالي النهائي</span>
-                <span>{fmt(finalTotal)} ج.م</span>
-              </div>
-              <div className="inv-totals-row paid-row">
-                <span>المبلغ المدفوع</span>
-                <span>{fmt(paid)} ج.م</span>
-              </div>
-              {change > 0 && (
-                <div className="inv-totals-row change-row">
-                  <span>المبلغ المرتجع</span>
-                  <span>{fmt(change)} ج.م</span>
-                </div>
-              )}
-            </div>
-
-            {/* QR Code */}
-            <div className="inv-right-col">
-              <div className="inv-qr-box">
-                <QRCodeSVG
-                  value={`INV:${sale.invoiceNumber}|TOTAL:${finalTotal}|DATE:${invoiceDate.toISOString().slice(0,10)}`}
-                  size={120}
-                  fgColor="#1a1a2e"
-                  bgColor="#f8f9fa"
-                  level="M"
-                />
-                <div className="inv-qr-label">امسح للتحقق من الفاتورة</div>
-                <div className="inv-qr-label" style={{ color: '#e63946', fontWeight: 800, marginTop: 2 }}>
-                  {sale.invoiceNumber}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ===== NOTES ===== */}
-          <div className="inv-notes">
-            <div className="inv-notes-title">📝 ملاحظات وسياسة الاسترجاع</div>
-            <div>• الاستبدال خلال 14 يوماً من تاريخ الفاتورة بشرط وجود الفاتورة الأصلية.</div>
-            <div>• يجب أن تكون القطعة في حالتها الأصلية دون كسر أو استخدام.</div>
-            {sale.notes && <div>• {sale.notes}</div>}
-          </div>
-
-          {/* ===== SIGNATURE ===== */}
-          <div className="inv-signature-row">
-            <div className="inv-signature-box">
-              <div style={{ height: '30px' }}></div>
-              توقيع العميل
-            </div>
-            <div className="inv-signature-box">
-              <div style={{ height: '30px' }}></div>
-              توقيع المسؤول
-            </div>
-          </div>
-
-          {/* ===== FOOTER ===== */}
-          <div className="inv-footer">
-            <div className="inv-thank">🙏 شكراً لثقتكم في محل على بركة الله</div>
-            <div className="inv-footer-sub">نتمنى لكم رحلة آمنة — تفضلوا بزيارتنا مرة أخرى</div>
-            <div className="inv-footer-sub" style={{ marginTop: 2 }}>📞 ٠١٠٩٥٣٩٢٩٢٩ / ٠١١١١١٧٥٠٩٩ &nbsp;|&nbsp; 📍 الحي الغربي بعد مجمع المحاكم</div>
-          </div>
-
+          <h1 className="receipt-shop-name">{shopName}</h1>
+          <p className="receipt-shop-sub">{shopSub}</p>
         </div>
+
+        <div className="receipt-divider"></div>
+        <div className="receipt-title">فاتورة بيع</div>
+        <div className="receipt-divider"></div>
+
+        {/* ===== METADATA: SALES & CASHIER DETAILS ===== */}
+        <div className="receipt-meta-grid">
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">رقم الفاتورة :</span>
+            <span className="receipt-meta-value font-mono">{sale.invoiceNumber}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">التاريخ :</span>
+            <span className="receipt-meta-value">{dateStr}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">وقت الفاتورة :</span>
+            <span className="receipt-meta-value">{timeStr}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">الكاشير :</span>
+            <span className="receipt-meta-value">{sale.user?.name || 'النظام'}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">اسم العميل :</span>
+            <span className="receipt-meta-value">{sale.customer?.name || 'عميل نقدي'}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">رقم الهاتف :</span>
+            <span className="receipt-meta-value">{sale.customer?.phone || '—'}</span>
+          </div>
+          <div className="receipt-meta-row">
+            <span className="receipt-meta-label">العنوان :</span>
+            <span className="receipt-meta-value">{sale.customer?.address || '—'}</span>
+          </div>
+        </div>
+
+        <div className="receipt-divider"></div>
+
+        {/* ===== PRODUCTS LIST TABLE ===== */}
+        <table className="receipt-table">
+          <thead>
+            <tr>
+              <th className="col-idx">م</th>
+              <th className="col-name">الصنف</th>
+              <th className="col-code">كود</th>
+              <th className="col-qty">العدد</th>
+              <th className="col-price">السعر</th>
+              <th className="col-total">الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sale.items?.map((item, idx) => (
+              <tr key={idx}>
+                <td className="col-idx">{idx + 1}</td>
+                <td className="col-name">
+                  <div>{item.product?.nameAr || item.product?.name || item.name || item.nameAr || '—'}</div>
+                  {/* Optional SKU/Barcode rendering below name to maximize print area */}
+                  {(item.product?.sku && item.product.sku !== item.product?.barcode) && (
+                    <div className="receipt-item-details font-mono">({item.product.sku})</div>
+                  )}
+                </td>
+                <td className="col-code font-mono">{item.product?.sku || item.product?.barcode || '—'}</td>
+                <td className="col-qty">{item.quantity}</td>
+                <td className="col-price">{fmt(item.sellPrice)}</td>
+                <td className="col-total">{fmt(item.sellPrice * item.quantity)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="receipt-divider"></div>
+
+        {/* ===== ACCOUNTING TOTALS SECTION ===== */}
+        <div className="receipt-totals-box">
+          <div className="receipt-totals-row">
+            <span>إجمالي المنتجات :</span>
+            <span className="font-mono">{sale.items?.length || 0}</span>
+          </div>
+          <div className="receipt-totals-row">
+            <span>إجمالي الكمية :</span>
+            <span className="font-mono">{totalQty}</span>
+          </div>
+          <div className="receipt-totals-row">
+            <span>إجمالي قبل الخصم :</span>
+            <span className="font-mono">{fmt(subtotal)}</span>
+          </div>
+          <div className="receipt-totals-row font-bold" style={{ color: discount > 0 ? '#000000' : 'inherit' }}>
+            <span>الخصم :</span>
+            <span className="font-mono">-{fmt(discount)}</span>
+          </div>
+          <div className="receipt-totals-row">
+            <span>ضريبة القيمة المضافة ({taxRate}%) :</span>
+            <span className="font-mono">{fmt(taxAmount)}</span>
+          </div>
+          
+          <div className="receipt-totals-row grand-total">
+            <span>الإجمالي النهائي :</span>
+            <span className="font-mono">{fmt(finalTotal)}</span>
+          </div>
+
+          <div className="receipt-totals-row" style={{ marginTop: '4px', opacity: 0.9 }}>
+            <span>المبلغ المدفوع :</span>
+            <span className="font-mono">{fmt(paid)}</span>
+          </div>
+          {change > 0 && (
+            <div className="receipt-totals-row" style={{ opacity: 0.9 }}>
+              <span>المبلغ المرتجع :</span>
+              <span className="font-mono">{fmt(change)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="receipt-divider"></div>
+
+        {/* ===== RECEIPT FOOTER & SCAN CODES ===== */}
+        <div className="receipt-footer">
+          <div className="receipt-thank">شكرا لثقتكم بنا</div>
+          <div className="receipt-thank">★ نتمنى لكم تجربة تسوق ممتعة ★</div>
+          
+          <div className="receipt-divider"></div>
+
+          {/* Dynamic Vector Barcode */}
+          <div className="my-3">
+            <svg ref={barcodeRef} className="receipt-barcode-svg mx-auto"></svg>
+          </div>
+
+          {/* Dynamic Vector QR Code for instant smartphone retrieval */}
+          <div className="receipt-qr-wrapper">
+            <QRCodeSVG
+              value={`INV:${sale.invoiceNumber}|TOTAL:${fmt(finalTotal)}|DATE:${dateStr}`}
+              size={paperSize === '58mm' ? 70 : 100}
+              fgColor="#000000"
+              bgColor="#ffffff"
+              level="M"
+            />
+            <span className="receipt-qr-text">امسح الكود للرجوع للفاتورة</span>
+          </div>
+
+          {/* Contact Details */}
+          <div className="receipt-contact-details">
+            <div>📞 {shopPhone}</div>
+            <div>📍 {shopAddress}</div>
+            <div style={{ marginTop: '4px', fontSize: '0.9em', borderTop: '1px dotted #ccc', paddingTop: '3px' }}>
+              رقم خدمة العملاء
+            </div>
+            <div className="font-mono">{customerServicePhone}</div>
+          </div>
+        </div>
+
+      </div>
     </>
   );
 });
