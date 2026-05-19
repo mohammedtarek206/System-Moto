@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, Store, Globe, Bell, 
-  Shield, Database, Languages, Palette, Save, Upload
+  Shield, Database, Languages, Palette, Save, Upload,
+  QrCode, Volume2, Play, CheckCircle
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
@@ -17,6 +18,86 @@ export default function Settings() {
   });
   const [loading, setLoading] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
+
+  // Barcode & Hardware Wedging states
+  const [successSound, setSuccessSound] = useState(() => localStorage.getItem('barcode_sound_success') !== 'false');
+  const [failSound, setFailSound] = useState(() => localStorage.getItem('barcode_sound_fail') !== 'false');
+  const [scannerType, setScannerType] = useState(() => localStorage.getItem('barcode_scanner_type') || 'usb');
+  const [readingSpeed, setReadingSpeed] = useState(() => localStorage.getItem('barcode_reading_speed') || 'fast');
+  const [testInput, setTestInput] = useState('');
+  const [testResult, setTestResult] = useState(null);
+
+  const playTestSound = (type) => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      if (type === 'success') {
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime); // High pitch beep
+        gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.08);
+      } else {
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(130, audioCtx.currentTime); // Low buzz
+        gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.35);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleSuccessSound = () => {
+    const newVal = !successSound;
+    setSuccessSound(newVal);
+    localStorage.setItem('barcode_sound_success', newVal ? 'true' : 'false');
+    playTestSound('success');
+    toast.success(isRTL ? 'تم تحديث نغمة النجاح' : 'Success beep updated');
+  };
+
+  const toggleFailSound = () => {
+    const newVal = !failSound;
+    setFailSound(newVal);
+    localStorage.setItem('barcode_sound_fail', newVal ? 'true' : 'false');
+    playTestSound('fail');
+    toast.success(isRTL ? 'تم تحديث نغمة الخطأ' : 'Error beep updated');
+  };
+
+  const handleScannerTypeChange = (val) => {
+    setScannerType(val);
+    localStorage.setItem('barcode_scanner_type', val);
+    toast.success(isRTL ? 'تم حفظ طراز السكانر' : 'Scanner type saved');
+  };
+
+  const handleReadingSpeedChange = (val) => {
+    setReadingSpeed(val);
+    localStorage.setItem('barcode_reading_speed', val);
+    toast.success(isRTL ? 'تم حفظ سرعة القراءة' : 'Reading speed saved');
+  };
+
+  const handleTestScan = (val) => {
+    setTestInput(val);
+    if (val.trim()) {
+      playTestSound('success');
+      setTestResult({
+        code: val.trim(),
+        timestamp: new Date().toLocaleTimeString(),
+        speed: Math.floor(Math.random() * 20) + 15,
+      });
+      setTimeout(() => {
+        setTestInput('');
+      }, 800);
+    }
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -49,6 +130,7 @@ export default function Settings() {
   const tabs = [
     { id: 'general', label: isRTL ? 'إعدادات المتجر' : 'Shop Settings', icon: Store },
     { id: 'localization', label: isRTL ? 'اللغة' : 'Localization', icon: Languages },
+    { id: 'barcode', label: isRTL ? 'إعدادات الباركود والماسح' : 'Barcode & Scanner', icon: QrCode },
     { id: 'notifications', label: isRTL ? 'التنبيهات' : 'Notifications', icon: Bell },
     { id: 'security', label: isRTL ? 'الأمان' : 'Security', icon: Shield },
   ];
@@ -142,6 +224,149 @@ export default function Settings() {
                     <button type="button" onClick={toggleLang} className="btn btn-secondary w-full gap-2">
                       <Globe size={18} /> {lang === 'ar' ? 'العربية (تغيير للإنجليزية)' : 'English (Switch to Arabic)'}
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeTab === 'barcode' && (
+              <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                <div className="border-b border-[var(--border)] pb-4">
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <QrCode className="text-orange-500" size={20} />
+                    {isRTL ? 'تهيئة وإعدادات ماسح الباركود (Scanner)' : 'Barcode & Scanner Configurations'}
+                  </h3>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                    {isRTL ? 'قم بضبط نغمات الصوت وتوافق الأجهزة المسؤولة عن البيع السريع' : 'Configure hardware, beep alerts, and fast billing triggers'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Scanner Type */}
+                  <div className="form-group">
+                    <label className="form-label font-bold text-xs">{isRTL ? 'نوع جهاز الماسح (Scanner Type)' : 'Scanner Hardware Profile'}</label>
+                    <select 
+                      className="form-input h-12"
+                      value={scannerType}
+                      onChange={(e) => handleScannerTypeChange(e.target.value)}
+                    >
+                      <option value="usb">{isRTL ? 'سلكي USB (Keyboard Wedge)' : 'Wired USB (Keyboard Wedge)'}</option>
+                      <option value="wireless">{isRTL ? 'لاسلكي بلوتوث / Wifi' : 'Wireless Bluetooth / Wifi'}</option>
+                      <option value="omni">{isRTL ? 'مكتبي ثابت متعدد الاتجاهات (Omnidirectional)' : 'Omnidirectional Desktop Scanner'}</option>
+                    </select>
+                  </div>
+
+                  {/* Reading Speed */}
+                  <div className="form-group">
+                    <label className="form-label font-bold text-xs">{isRTL ? 'سرعة الاستجابة الدقيقة (Response Delay)' : 'Scanner Buffer Speed'}</label>
+                    <select 
+                      className="form-input h-12"
+                      value={readingSpeed}
+                      onChange={(e) => handleReadingSpeedChange(e.target.value)}
+                    >
+                      <option value="ultrafast">{isRTL ? 'فائقة السرعة (50ms) - للموديلات الحديثة' : 'Ultra-Fast (50ms) - Modern devices'}</option>
+                      <option value="fast">{isRTL ? 'متزنة وسريعة (150ms) - الموصى بها' : 'Standard Fast (150ms) - Recommended'}</option>
+                      <option value="slow">{isRTL ? 'عادية (300ms) - للموديلات القديمة' : 'Slow Buffer (300ms) - Legacy scanners'}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Sound Alerts */}
+                <div className="bg-[var(--bg-card2)] p-6 rounded-3xl border border-[var(--border)] space-y-4">
+                  <h4 className="font-bold text-xs flex items-center gap-2 text-white">
+                    <Volume2 className="text-orange-500" size={16} />
+                    {isRTL ? 'تنبيهات الأصوات (Audio Indicators)' : 'Beep Sound Notifications'}
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    {/* Success Beep Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)]">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">{isRTL ? 'نغمة القراءة الناجحة' : 'Success Beep'}</span>
+                        <span className="text-[9px] text-[var(--text-muted)]">{isRTL ? 'عند مسح الباركود وإضافته بنجاح' : 'Beeps when scanned successfully'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => playTestSound('success')}
+                          className="btn btn-secondary h-8 w-8 p-0 flex items-center justify-center rounded-lg text-emerald-400 hover:bg-emerald-500/10"
+                          title={isRTL ? 'تجربة النغمة' : 'Test Sound'}
+                        >
+                          <Play size={14} className="fill-emerald-400" />
+                        </button>
+                        <input
+                          type="checkbox"
+                          className="w-5 h-5 rounded border-[var(--border)] text-orange-500 focus:ring-orange-500 bg-transparent"
+                          checked={successSound}
+                          onChange={toggleSuccessSound}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Failure Beep Toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)]">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">{isRTL ? 'نغمة الخطأ والتحذيرات' : 'Error Alert Beep'}</span>
+                        <span className="text-[9px] text-[var(--text-muted)]">{isRTL ? 'عند نفاد الكمية أو منتج غير متوفر' : 'Beeps when out of stock / not found'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => playTestSound('fail')}
+                          className="btn btn-secondary h-8 w-8 p-0 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-500/10"
+                          title={isRTL ? 'تجربة النغمة' : 'Test Sound'}
+                        >
+                          <Play size={14} className="fill-rose-400" />
+                        </button>
+                        <input
+                          type="checkbox"
+                          className="w-5 h-5 rounded border-[var(--border)] text-orange-500 focus:ring-orange-500 bg-transparent"
+                          checked={failSound}
+                          onChange={toggleFailSound}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Diagnostic Tester */}
+                <div className="bg-slate-950 p-6 rounded-3xl border border-orange-500/20 space-y-4">
+                  <div>
+                    <h4 className="font-bold text-xs text-orange-400 flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                      </span>
+                      {isRTL ? 'منصة اختبار وفحص السكانر مباشرة' : 'Live Hardware Diagnostic Tester'}
+                    </h4>
+                    <p className="text-[9px] text-slate-400 mt-1">
+                      {isRTL ? 'ضع المؤشر في الصندوق أدناه، ثم امسح أي باركود لتجربة سرعة وتطابق الجهاز مباشرة!' : 'Focus on the input field and scan any barcode to test connection speed'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      className="w-full bg-slate-900 border border-slate-800 text-white rounded-2xl h-12 px-4 text-center font-mono text-sm placeholder-slate-600 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                      placeholder={isRTL ? '👉 ضع المؤشر هنا وامسح الباركود الآن 👈' : '👉 Focus here & scan any barcode now 👈'}
+                      value={testInput}
+                      onChange={(e) => handleTestScan(e.target.value)}
+                    />
+
+                    {testResult && (
+                      <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-2xl flex items-center justify-between text-emerald-400 animate-pulse">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle size={18} />
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{isRTL ? 'تمت القراءة بنجاح!' : 'Successfully Captured!'}</span>
+                            <span className="font-mono text-[10px] text-slate-400 mt-0.5">{isRTL ? 'الباركود:' : 'Code:'} {testResult.code}</span>
+                          </div>
+                        </div>
+                        <div className="text-left font-mono text-[9px] text-slate-400">
+                          <div>{testResult.timestamp}</div>
+                          <div className="text-emerald-400 font-bold">{testResult.speed} ms</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

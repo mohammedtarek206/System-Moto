@@ -48,9 +48,9 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
   // Global paper size configuration (80mm or 58mm)
   const paperSize = receiptWidth || localStorage.getItem('receipt_paper_size') || '80mm';
 
-  // Fallbacks matched to "النسر" shop details from prompt & attached receipt mockups
-  const shopName = settings?.shopNameAr || 'النسر';
-  const shopSub = settings?.shopName ? 'لقطع غيار الموتوسيكلات' : 'لقطع غيار الموتوسيكلات';
+  // Fallbacks matched to the new branding
+  const shopName = 'على بركة الله';
+  const shopSub = 'معرض سيارات وموتسيكلات';
   const shopPhone = settings?.shopPhone || '01234567890';
   const customerServicePhone = settings?.shopPhone || '01234567890';
   const shopAddress = settings?.shopAddress || 'جمهورية - بجوار محطة البنزين - القاهرة';
@@ -385,44 +385,8 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
         
         {/* ===== LOGO & HEADER SECTION ===== */}
         <div className="receipt-header">
-          {/* Custom vector wings + motorcycle + cog gear SVG logo for pure sharp thermal prints */}
-          <svg viewBox="0 0 100 60" className="receipt-logo-svg">
-            {/* Left Wing */}
-            <path d="M 35 25 C 20 25, 10 15, 5 30 C 12 35, 20 30, 35 28 Z" />
-            <path d="M 32 30 C 18 31, 12 24, 8 36 C 14 39, 22 35, 32 33 Z" />
-            <path d="M 29 35 C 16 37, 14 32, 11 41 C 17 43, 23 39, 29 37 Z" />
-            
-            {/* Right Wing */}
-            <path d="M 65 25 C 80 25, 90 15, 95 30 C 88 35, 80 30, 65 28 Z" />
-            <path d="M 68 30 C 82 31, 88 24, 92 36 C 86 39, 78 35, 68 33 Z" />
-            <path d="M 71 35 C 84 37, 86 32, 89 41 C 83 43, 77 39, 71 37 Z" />
-
-            {/* Central Gear / Cog Wheel */}
-            <circle cx="50" cy="30" r="14" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <g transform="translate(50, 30)">
-              {[...Array(8)].map((_, i) => (
-                <rect key={i} x="-2" y="-16.5" width="4" height="3" transform={`rotate(${i * 45})`} />
-              ))}
-            </g>
-            <circle cx="50" cy="30" r="11" fill="#ffffff" />
-            
-            {/* Central Motorcycle Silhouette */}
-            <g transform="translate(41.5, 24) scale(0.17)">
-              {/* Wheels */}
-              <circle cx="10" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="3" />
-              <circle cx="10" cy="30" r="2" />
-              <circle cx="90" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="3" />
-              <circle cx="90" cy="30" r="2" />
-              {/* Chassis / Frame */}
-              <path d="M 10 30 L 40 30 L 60 12 L 90 30 L 75 12" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M 40 30 L 48 10 L 70 10 L 60 30 Z" />
-              {/* Handlebars */}
-              <path d="M 75 12 L 68 2" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M 68 2 L 58 2" fill="none" stroke="#000000" strokeWidth="2.5" strokeLinecap="round" />
-              {/* Seat */}
-              <path d="M 30 18 L 52 18" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" />
-            </g>
-          </svg>
+          {/* Store Logo */}
+          <img src={settings?.logo || "/photo_2026-05-12_22-56-52.jpg"} className="receipt-logo-svg" style={{ objectFit: 'contain', filter: 'grayscale(100%) contrast(120%)' }} alt="Logo" />
 
           <h1 className="receipt-shop-name">{shopName}</h1>
           <p className="receipt-shop-sub">{shopSub}</p>

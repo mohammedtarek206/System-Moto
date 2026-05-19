@@ -3,9 +3,9 @@ import { useLang } from '../contexts/LangContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { 
-  Wallet, Plus, Search, FileText, Printer, CheckCircle, AlertTriangle, 
-  Clock, Users, Coins, TrendingUp, Download, Eye, FileSpreadsheet, Trash2, 
+import {
+  Wallet, Plus, Search, FileText, Printer, CheckCircle, AlertTriangle,
+  Clock, Users, Coins, TrendingUp, Download, Eye, FileSpreadsheet, Trash2,
   Upload, Sparkles, QrCode, Calendar, ArrowUpRight, Check, CheckCircle2,
   ChevronRight, ChevronLeft, Bell, MapPin, Briefcase, ShieldAlert,
   ArrowRightLeft, FileCode, CheckSquare, PlusCircle
@@ -255,11 +255,11 @@ export default function Installments() {
       if (res.data.success) {
         toast.success('تم دفع القسط بنجاح وتسجيل عملية التحصيل!');
         setPaymentModalOpen(false);
-        
+
         // Load receipt data
         const updatedContract = res.data.data;
         const currentInst = updatedContract.installments.find(i => i.installmentNumber === Number(paymentForm.installmentNumber));
-        
+
         setReceiptData({
           contractNumber: updatedContract.contractNumber,
           customerName: updatedContract.customer?.name || 'عميل تقسيط',
@@ -326,7 +326,7 @@ export default function Installments() {
         <body>
           <div class="receipt-card">
             <div class="header">
-              <h2>سيستم Moto لقطع الغيار والمبيعات</h2>
+              <h2>معرض على بركة الله للسيارات والموتوسيكلات</h2>
               <p>الحي الغربي بعد مجمع المحاكم</p>
               <p>هاتف: ٠١٠٩٥٣٩٢٩٢٩ / ٠١١١١١٧٥٠٩٩</p>
               <h3 style="margin: 15px 0 0 0; background: #ffe4e6; padding: 8px; border-radius: 8px; font-size: 16px; color:#e11d48">إيصال تحصيل قسط تقسيط</h3>
@@ -362,7 +362,7 @@ export default function Installments() {
     iframe.style.height = '0px';
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
-    
+
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(printContent);
@@ -399,7 +399,7 @@ export default function Installments() {
           <div class="section">
             <div class="section-title">أولاً: بيانات أطراف العقد</div>
             <div class="grid">
-              <div class="field"><span class="label">الطرف الأول (البائع):</span> سيستم Moto لمبيعات الموتوسيكلات</div>
+              <div class="field"><span class="label">الطرف الأول (البائع):</span> معرض على بركة الله للسيارات والموتوسيكلات</div>
               <div class="field"><span class="label">الطرف الثاني (المشتري):</span> ${contract.customer?.name}</div>
               <div class="field"><span class="label">رقم الهاتف:</span> ${contract.customer?.phone}</div>
               <div class="field"><span class="label">الرقم القومي:</span> ${contract.customer?.nationalId}</div>
@@ -451,7 +451,7 @@ export default function Installments() {
           </div>
 
           <div class="footer-info">
-            <p>سيستم Moto - الحي الغربي بعد مجمع المحاكم</p>
+            <p>معرض على بركة الله - الحي الغربي بعد مجمع المحاكم</p>
             <p>٠١٠٩٥٣٩٢٩٢٩ / ٠١١١١١٧٥٠٩٩</p>
           </div>
           <script>window.print();</script>
@@ -465,7 +465,7 @@ export default function Installments() {
     iframe.style.height = '0px';
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
-    
+
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(printContent);
@@ -485,7 +485,7 @@ export default function Installments() {
       {/* Top Banner Header with Premium Dark/Red theme */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-br from-slate-900 via-[#1e1416] to-[#0c0708] border border-red-950/40 p-6 sm:p-8 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-        
+
         <div className="flex items-center gap-4 z-10">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-red-600 to-[#991b1b] flex items-center justify-center border border-red-500/30 shadow-[0_8px_16px_rgba(225,29,72,0.15)] shrink-0">
             <Wallet className="w-9 h-9 text-white animate-pulse" />
@@ -509,7 +509,7 @@ export default function Installments() {
         <div className="flex items-center gap-4 z-10 w-full md:w-auto justify-end">
           {/* Glowing Notification Bell */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setNotifOpen(!notifOpen)}
               className="p-3 bg-slate-900 border border-slate-800 hover:border-red-900/60 rounded-xl hover:bg-slate-850 transition-all text-slate-300 relative group active:scale-95"
             >
@@ -520,7 +520,7 @@ export default function Installments() {
                 </span>
               )}
             </button>
-            
+
             {/* Quick Overdue Alert Popover */}
             {notifOpen && (
               <div className="absolute left-0 mt-3 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 z-40 space-y-3 animate-fade-in text-right">
@@ -536,7 +536,7 @@ export default function Installments() {
                       <p className="text-red-400 font-bold leading-relaxed">
                         يوجد حالياً <span className="font-black text-red-500">{stats.overdueCount} قسط متأخر</span> عن تاريخ الاستحقاق. يرجى مراجعة شاشة التحصيل والتقارير.
                       </p>
-                      <button 
+                      <button
                         onClick={() => { setNotifOpen(false); setActiveTab('collection'); }}
                         className="text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg w-full font-bold transition-all text-center"
                       >
@@ -551,14 +551,14 @@ export default function Installments() {
             )}
           </div>
 
-          <button 
+          <button
             onClick={() => setCustomerModalOpen(true)}
             className="flex items-center gap-2 bg-slate-900 hover:bg-slate-850 text-slate-200 font-bold px-4 py-3.5 rounded-2xl border border-slate-800 hover:border-red-950/50 shadow-md transition-all active:scale-95 text-xs sm:text-sm"
           >
             <PlusCircle className="w-5 h-5 text-red-500" />
             إضافة عميل
           </button>
-          <button 
+          <button
             onClick={() => setContractModalOpen(true)}
             className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-[#991b1b] hover:from-red-500 hover:to-red-600 text-white font-bold px-5 py-3.5 rounded-2xl shadow-[0_8px_16px_rgba(220,38,38,0.2)] border border-red-500/20 transition-all active:scale-95 text-xs sm:text-sm"
           >
@@ -586,11 +586,10 @@ export default function Installments() {
                 setActiveTab(tab.id);
                 if (tab.id === 'reports') fetchReports('summary');
               }}
-              className={`flex items-center gap-2.5 px-6 py-4 font-extrabold text-sm sm:text-base border-b-3 transition-all duration-300 whitespace-nowrap shrink-0 ${
-                active 
-                  ? 'border-red-600 text-red-500 bg-red-950/5' 
+              className={`flex items-center gap-2.5 px-6 py-4 font-extrabold text-sm sm:text-base border-b-3 transition-all duration-300 whitespace-nowrap shrink-0 ${active
+                  ? 'border-red-600 text-red-500 bg-red-950/5'
                   : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
-              }`}
+                }`}
             >
               <Icon className={`w-5 h-5 ${active ? 'text-red-500' : 'text-slate-500'}`} />
               {tab.label}
@@ -612,11 +611,10 @@ export default function Installments() {
             ].map((card, i) => {
               const Icon = card.icon;
               return (
-                <div 
-                  key={i} 
-                  className={`bg-slate-900/60 border border-slate-900 hover:border-slate-800 p-6 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-between relative overflow-hidden ${
-                    card.glow ? 'ring-1 ring-red-500/30 border-red-950' : ''
-                  }`}
+                <div
+                  key={i}
+                  className={`bg-slate-900/60 border border-slate-900 hover:border-slate-800 p-6 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-between relative overflow-hidden ${card.glow ? 'ring-1 ring-red-500/30 border-red-950' : ''
+                    }`}
                 >
                   <div className="space-y-2">
                     <p className="text-slate-400 text-xs sm:text-sm font-bold">{card.label}</p>
@@ -642,15 +640,15 @@ export default function Installments() {
                 </h3>
                 <p className="text-slate-400 text-xs mt-1">رصد بياني لمعدل كفاءة التحصيل واسترداد المبالغ القائمة</p>
               </div>
-              
+
               <div className="h-64 mt-8 z-10">
                 {stats.chartData && stats.chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorCollections" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
@@ -673,7 +671,7 @@ export default function Installments() {
                   <Sparkles className="w-4 h-4 text-red-500" /> إجراءات سريعة ومميزة
                 </h3>
                 <div className="grid grid-cols-2 gap-3 mt-4">
-                  <button 
+                  <button
                     onClick={() => { setActiveTab('collection'); }}
                     className="flex flex-col items-center justify-center p-4 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-red-950/40 rounded-2xl transition-all duration-300 group"
                   >
@@ -681,7 +679,7 @@ export default function Installments() {
                     <span className="text-[11px] font-bold text-slate-300 mt-2">تحصيل سريع</span>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => { setContractModalOpen(true); }}
                     className="flex flex-col items-center justify-center p-4 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-red-950/40 rounded-2xl transition-all duration-300 group"
                   >
@@ -689,7 +687,7 @@ export default function Installments() {
                     <span className="text-[11px] font-bold text-slate-300 mt-2">جدولة عقد</span>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => { setActiveTab('reports'); setReportType('overdue'); }}
                     className="flex flex-col items-center justify-center p-4 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-red-950/40 rounded-2xl transition-all duration-300 group"
                   >
@@ -697,7 +695,7 @@ export default function Installments() {
                     <span className="text-[11px] font-bold text-slate-300 mt-2">متابعة المتأخرات</span>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => { setActiveTab('reports'); setReportType('collection'); }}
                     className="flex flex-col items-center justify-center p-4 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-red-950/40 rounded-2xl transition-all duration-300 group"
                   >
@@ -810,7 +808,7 @@ export default function Installments() {
                                 <Eye className="w-4 h-4" /> البطاقة
                               </a>
                             ) : <span className="text-[10px] text-slate-600">لا بطاقة</span>}
-                            
+
                             {cust.contractImage ? (
                               <a href={`${api.defaults.baseURL.replace('/api', '')}${cust.contractImage}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-900 text-red-500 hover:text-red-400 px-3 py-2 rounded-xl border border-slate-850 hover:border-red-950/40 transition-all font-bold">
                                 <Eye className="w-4 h-4" /> صورة العقد
@@ -857,23 +855,21 @@ export default function Installments() {
             <div className="lg:col-span-2 space-y-4">
               {contracts.length > 0 ? (
                 contracts.map(contract => (
-                  <div 
-                    key={contract._id} 
+                  <div
+                    key={contract._id}
                     onClick={() => setSelectedContract(contract)}
-                    className={`p-6 rounded-3xl border cursor-pointer transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-4 shadow-md hover:shadow-lg ${
-                      selectedContract?._id === contract._id 
-                        ? 'bg-gradient-to-br from-[#1e1012] to-[#0d0708] border-red-600/80' 
+                    className={`p-6 rounded-3xl border cursor-pointer transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-4 shadow-md hover:shadow-lg ${selectedContract?._id === contract._id
+                        ? 'bg-gradient-to-br from-[#1e1012] to-[#0d0708] border-red-600/80'
                         : 'bg-slate-900/60 border-slate-900 hover:border-slate-800'
-                    }`}
+                      }`}
                   >
                     {/* Red glow indicator */}
-                    <div className={`absolute top-0 right-0 w-2 h-full ${
-                      contract.status === 'active' 
-                        ? 'bg-blue-600' 
+                    <div className={`absolute top-0 right-0 w-2 h-full ${contract.status === 'active'
+                        ? 'bg-blue-600'
                         : contract.status === 'completed'
-                        ? 'bg-emerald-600'
-                        : 'bg-red-600'
-                    }`} />
+                          ? 'bg-emerald-600'
+                          : 'bg-red-600'
+                      }`} />
 
                     <div className="flex justify-between items-start mr-2">
                       <div>
@@ -881,13 +877,12 @@ export default function Installments() {
                         <h4 className="text-slate-100 font-black text-base sm:text-lg mt-3">{contract.customer?.name}</h4>
                         <p className="text-slate-400 text-xs mt-1">موتوسيكل: {contract.motorcycleBrand} {contract.motorcycleModel}</p>
                       </div>
-                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-black border ${
-                        contract.status === 'active' 
-                          ? 'bg-blue-600/10 text-blue-500 border-blue-600/20' 
+                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-black border ${contract.status === 'active'
+                          ? 'bg-blue-600/10 text-blue-500 border-blue-600/20'
                           : contract.status === 'completed'
-                          ? 'bg-emerald-600/10 text-emerald-500 border-emerald-600/20'
-                          : 'bg-red-600/10 text-red-500 border-red-600/20 animate-pulse'
-                      }`}>
+                            ? 'bg-emerald-600/10 text-emerald-500 border-emerald-600/20'
+                            : 'bg-red-600/10 text-red-500 border-red-600/20 animate-pulse'
+                        }`}>
                         {contract.status === 'active' ? 'نشط' : contract.status === 'completed' ? 'مكتمل' : 'متأخر'}
                       </span>
                     </div>
@@ -927,14 +922,14 @@ export default function Installments() {
               {selectedContract ? (
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl space-y-6 sticky top-24 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-                  
+
                   <div className="flex justify-between items-start border-b border-slate-800 pb-4 z-10 relative">
                     <div>
                       <h3 className="text-lg font-black text-slate-100">جدولة العقد والأقساط</h3>
                       <p className="text-slate-400 text-xs mt-1">تتبع الدفعات وتوقيت الاستحقاق</p>
                     </div>
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => printContractLayout(selectedContract)}
                         className="p-2.5 bg-slate-950 hover:bg-slate-850 text-red-500 hover:text-red-400 rounded-xl border border-slate-850 transition-all active:scale-95 shadow-md"
                         title="طباعة العقد الرسمي"
@@ -942,7 +937,7 @@ export default function Installments() {
                         <Printer className="w-5 h-5" />
                       </button>
                       {user && user.role === 'admin' && (
-                        <button 
+                        <button
                           onClick={() => handleDeleteContract(selectedContract._id)}
                           className="p-2.5 bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl border border-red-500/20 transition-all active:scale-95 shadow-md"
                           title="حذف العقد"
@@ -955,7 +950,7 @@ export default function Installments() {
 
                   {/* QR Code and basic info */}
                   <div className="flex items-center justify-between bg-slate-950 p-4 rounded-2xl border border-slate-850 shadow-inner z-10 relative">
-                    <QRCodeSVG 
+                    <QRCodeSVG
                       value={`MOTO-INSTALLMENT:${selectedContract.contractNumber}`}
                       size={90}
                       bgColor={"#09090b"}
@@ -980,13 +975,12 @@ export default function Installments() {
                             <span className="text-slate-200 font-black">{inst.amount} جنيه</span>
                             <p className="text-[10px] text-slate-500 mt-1 font-medium">الاستحقاق: {new Date(inst.dueDate).toLocaleDateString('ar-EG')}</p>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
-                            inst.status === 'paid'
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${inst.status === 'paid'
                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                               : inst.status === 'overdue'
-                              ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse'
-                              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                          }`}>
+                                ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse'
+                                : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                            }`}>
                             {inst.status === 'paid' ? 'مدفوع' : inst.status === 'overdue' ? 'متأخر' : 'مستحق'}
                           </span>
                         </div>
@@ -1023,7 +1017,7 @@ export default function Installments() {
                 className="w-full bg-slate-950 border border-slate-850/80 rounded-2xl py-3.5 pr-12 pl-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-600 transition-colors font-black text-sm"
               />
             </div>
-            <button 
+            <button
               onClick={handleCollectionSearch}
               className="bg-gradient-to-r from-red-600 to-[#991b1b] hover:from-red-500 hover:to-red-600 text-white font-black px-8 py-3 rounded-2xl active:scale-95 transition-all text-xs sm:text-sm border border-red-500/20 shadow-[0_8px_16px_rgba(220,38,38,0.2)]"
             >
@@ -1037,7 +1031,7 @@ export default function Installments() {
                 searchResults.map(contract => (
                   <div key={contract._id} className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl space-y-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-                    
+
                     <div className="flex justify-between items-start border-b border-slate-850 pb-4 relative z-10">
                       <div>
                         <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-1 rounded-lg border border-red-500/20">عقد نشط: {contract.contractNumber}</span>
@@ -1063,15 +1057,14 @@ export default function Installments() {
                               <p className="text-slate-100 font-black text-sm mt-1">{inst.amount} جنيه</p>
                               <p className="text-[10px] text-slate-600 mt-1 font-medium">الاستحقاق: {new Date(inst.dueDate).toLocaleDateString('ar-EG')}</p>
                             </div>
-                            
+
                             <div className="flex flex-col items-end gap-2">
-                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${
-                                inst.status === 'paid'
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${inst.status === 'paid'
                                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                   : inst.status === 'overdue'
-                                  ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse'
-                                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              }`}>
+                                    ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse'
+                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                }`}>
                                 {inst.status === 'paid' ? 'مدفوع' : inst.status === 'overdue' ? 'متأخر' : 'مستحق'}
                               </span>
 
@@ -1110,7 +1103,7 @@ export default function Installments() {
               {receiptData ? (
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 sticky top-24 relative overflow-hidden shadow-2xl">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/5 rounded-full blur-3xl pointer-events-none" />
-                  
+
                   <div className="text-center border-b border-slate-850 pb-4 z-10 relative">
                     <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
                     <h3 className="text-lg font-black text-slate-100 mt-3">تم إثبات السداد والتحصيل</h3>
@@ -1165,11 +1158,10 @@ export default function Installments() {
                   setReportType(rep.id);
                   if (rep.id !== 'summary') fetchReports(rep.id);
                 }}
-                className={`px-5 py-3 rounded-xl font-extrabold text-xs sm:text-sm border transition-all ${
-                  reportType === rep.id
+                className={`px-5 py-3 rounded-xl font-extrabold text-xs sm:text-sm border transition-all ${reportType === rep.id
                     ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-500/10'
                     : 'bg-slate-950 border-slate-850 text-slate-400 hover:text-slate-200'
-                }`}
+                  }`}
               >
                 {rep.label}
               </button>
@@ -1179,7 +1171,7 @@ export default function Installments() {
           {/* Printable Layout with custom design */}
           <div className="bg-slate-900/60 border border-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden" ref={printRef}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-            
+
             <div className="flex justify-between items-center border-b border-slate-850 pb-5 mb-6 z-10 relative">
               <div>
                 <h3 className="text-lg font-black text-slate-100">
@@ -1237,13 +1229,13 @@ export default function Installments() {
                       {reportType === 'overdue' && <th className="p-4">القسط المتأخر</th>}
                       {reportType === 'overdue' && <th className="p-4">تاريخ الاستحقاق</th>}
                       {reportType === 'overdue' && <th className="p-4">أيام التأخير</th>}
-                      
+
                       {reportType === 'collection' && <th className="p-4">تاريخ السداد</th>}
                       {reportType === 'collection' && <th className="p-4">طريقة السداد</th>}
-                      
+
                       {(reportType === 'active' || reportType === 'completed') && <th className="p-4">المركبة</th>}
                       {(reportType === 'active' || reportType === 'completed') && <th className="p-4">تاريخ الانتهاء</th>}
-                      
+
                       <th className="p-4">المبلغ</th>
                     </tr>
                   </thead>
@@ -1255,17 +1247,17 @@ export default function Installments() {
                         <tr key={idx} className="hover:bg-slate-950/40 text-slate-200 font-semibold transition-colors">
                           <td className="p-4 font-black text-red-500">{row.contractNumber || row.contract?.contractNumber}</td>
                           <td className="p-4 font-black text-slate-100">{row.customerName || row.customer?.name}</td>
-                          
+
                           {reportType === 'overdue' && <td className="p-4 text-amber-500 font-black">قسط رقم {row.installmentNumber}</td>}
                           {reportType === 'overdue' && <td className="p-4 text-slate-400">{new Date(row.dueDate).toLocaleDateString('ar-EG')}</td>}
                           {reportType === 'overdue' && <td className="p-4 text-red-600 font-black">{row.delayDays} يوم تأخير</td>}
-                          
+
                           {reportType === 'collection' && <td className="p-4 text-slate-400">{new Date(row.paymentDate).toLocaleDateString('ar-EG')}</td>}
                           {reportType === 'collection' && <td className="p-4 text-slate-400">{row.paymentMethod === 'cash' ? 'نقدي' : 'بطاقة/تحويل'}</td>}
-                          
+
                           {(reportType === 'active' || reportType === 'completed') && <td className="p-4 text-slate-300">{row.motorcycleBrand} {row.motorcycleModel}</td>}
                           {(reportType === 'active' || reportType === 'completed') && <td className="p-4 text-slate-400">{new Date(row.endDate).toLocaleDateString('ar-EG')}</td>}
-                          
+
                           <td className="p-4 font-black text-slate-100">
                             {row.amount || row.remainingAmount || row.monthlyInstallment} جنيه
                           </td>
@@ -1291,7 +1283,7 @@ export default function Installments() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-            
+
             <div className="flex justify-between items-start border-b border-slate-850 pb-4 z-10 relative">
               <div>
                 <h3 className="text-xl font-black text-slate-100 flex items-center gap-2">
@@ -1455,7 +1447,7 @@ export default function Installments() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl max-h-[95vh] overflow-y-auto p-6 sm:p-8 space-y-6 relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-            
+
             <div className="flex justify-between items-start border-b border-slate-850 pb-4 z-10 relative">
               <div>
                 <h3 className="text-xl font-black text-slate-100 flex items-center gap-2">
@@ -1464,8 +1456,8 @@ export default function Installments() {
                 </h3>
                 <p className="text-slate-400 text-xs mt-1">تحديد شروط وجدولة الدفع المالي للموتوسيكل</p>
               </div>
-              <button 
-                onClick={() => { setContractModalOpen(false); setContractStep(1); }} 
+              <button
+                onClick={() => { setContractModalOpen(false); setContractStep(1); }}
                 className="p-2.5 text-slate-400 hover:text-slate-200 bg-slate-950 hover:bg-slate-850 rounded-xl transition-all active:scale-95 border border-slate-850"
               >
                 <X className="w-5 h-5" />
@@ -1480,13 +1472,12 @@ export default function Installments() {
                 { step: 3, label: 'ثالثاً: الجدولة والفوائد' }
               ].map((s, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center border font-black transition-all ${
-                    contractStep === s.step 
-                      ? 'bg-red-600 border-red-500 text-white' 
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center border font-black transition-all ${contractStep === s.step
+                      ? 'bg-red-600 border-red-500 text-white'
                       : contractStep > s.step
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                      : 'bg-slate-900 border-slate-850 text-slate-500'
-                  }`}>
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                        : 'bg-slate-900 border-slate-850 text-slate-500'
+                    }`}>
                     {s.step}
                   </span>
                   <span className={contractStep === s.step ? 'text-slate-100' : 'text-slate-500'}>{s.label}</span>
@@ -1654,9 +1645,9 @@ export default function Installments() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button 
-                    type="button" 
-                    onClick={() => { setContractModalOpen(false); setContractStep(1); }} 
+                  <button
+                    type="button"
+                    onClick={() => { setContractModalOpen(false); setContractStep(1); }}
                     className="bg-slate-950 hover:bg-slate-850 border border-slate-850 text-slate-400 font-bold px-6 py-3 rounded-xl active:scale-95 transition-all"
                   >
                     إلغاء
@@ -1699,7 +1690,7 @@ export default function Installments() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-6 relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-            
+
             <div className="flex justify-between items-start border-b border-slate-850 pb-4 z-10 relative">
               <div>
                 <h3 className="text-lg font-black text-slate-100 flex items-center gap-2">

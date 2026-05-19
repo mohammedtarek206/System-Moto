@@ -151,10 +151,10 @@ export default function BarcodePrint() {
 
     const doc = iframe.contentWindow.document;
 
-    // Define size CSS properties for sandboxed page
+    // Define size CSS properties for sandboxed page (without landscape keyword to prevent fallback to A4)
     const sizeCss = printRotation === 'portrait'
       ? (selectedSize === 'micro' ? '20mm 40mm' : selectedSize === 'small' ? '30mm 40mm' : selectedSize === 'medium' ? '30mm 50mm' : '40mm 60mm')
-      : (selectedSize === 'micro' ? '40mm 20mm landscape' : selectedSize === 'small' ? '40mm 30mm landscape' : selectedSize === 'medium' ? '50mm 30mm landscape' : '60mm 40mm landscape');
+      : (selectedSize === 'micro' ? '40mm 20mm' : selectedSize === 'small' ? '40mm 30mm' : selectedSize === 'medium' ? '50mm 30mm' : '60mm 40mm');
 
     const widthCss = selectedSize === 'micro' ? '40mm' : selectedSize === 'small' ? '40mm' : selectedSize === 'medium' ? '50mm' : '60mm';
     const heightCss = selectedSize === 'micro' ? '20mm' : selectedSize === 'small' ? '30mm' : selectedSize === 'medium' ? '30mm' : '40mm';
@@ -224,6 +224,20 @@ export default function BarcodePrint() {
                 width: ${printRotation === 'portrait' ? heightCss : widthCss} !important;
                 height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
               }
+              body * {
+                visibility: hidden !important;
+              }
+              .barcode-print,
+              .barcode-print * {
+                visibility: visible !important;
+              }
+              .barcode-print {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: ${printRotation === 'portrait' ? heightCss : widthCss} !important;
+                height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
+              }
               .barcode-label {
                 border: none !important;
                 margin: 0 !important;
@@ -233,12 +247,14 @@ export default function BarcodePrint() {
                 height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+                page-break-after: always !important;
+                break-after: always !important;
               }
             }
           </style>
         </head>
         <body dir="${isRTL ? 'rtl' : 'ltr'}">
-          <div class="labels-container">
+          <div class="barcode-print labels-container">
             ${Array(printQuantity).fill(0).map(() => {
               let innerHtml = '';
               if (selectedSize === 'micro') {

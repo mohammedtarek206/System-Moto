@@ -32,7 +32,7 @@ const OfficialInvoice = forwardRef(({ sale }, ref) => {
           </div>
           <div>
             <h1 className="text-3xl font-black italic tracking-tighter text-slate-900">على بركة الله</h1>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{isRTL ? 'لإدارة قطع غيار الموتوسيكلات' : 'Motorcycle Spare Parts'}</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{isRTL ? 'معرض سيارات وموتسيكلات' : 'Cars & Motorcycles Showroom'}</p>
           </div>
         </div>
         <div className="text-end">
