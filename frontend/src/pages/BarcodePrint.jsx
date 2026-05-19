@@ -10,6 +10,19 @@ import Barcode from 'react-barcode';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 
+const getDynamicFontSize = (name, baseAdjust = 0) => {
+  const len = name ? name.length : 0;
+  let size = 9.5; // default base size in px
+  if (len > 35) {
+    size = 6.5;
+  } else if (len > 25) {
+    size = 7.5;
+  } else if (len > 15) {
+    size = 8.5;
+  }
+  return Math.max(5.5, size + baseAdjust);
+};
+
 export default function BarcodePrint() {
   const { t, isRTL } = useLang();
   const [products, setProducts] = useState([]);
@@ -181,11 +194,11 @@ export default function BarcodePrint() {
               display: flex !important;
               flex-direction: column !important;
               align-items: center !important;
-              justify-content: center !important;
+              justify-content: ${selectedSize === 'micro' ? 'space-between' : 'center'} !important;
               width: ${printRotation === 'portrait' ? heightCss : widthCss} !important;
               height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
               box-sizing: border-box !important;
-              padding: ${printRotation === 'portrait' ? '0' : (selectedSize === 'micro' ? '0.5mm' : '1.5mm')} !important;
+              padding: ${printRotation === 'portrait' ? '0' : (selectedSize === 'micro' ? '0.6mm 1.2mm 0.4mm 1.2mm' : '1.5mm')} !important;
               page-break-after: always !important;
               break-after: always !important;
               overflow: hidden !important;
@@ -199,18 +212,27 @@ export default function BarcodePrint() {
             .barcode-svg svg {
               width: 100% !important;
               height: auto !important;
-              max-height: ${selectedSize === 'micro' ? '35px' : '45px'} !important;
+              max-height: ${selectedSize === 'micro' ? '8.5mm' : '45px'} !important;
               display: block !important;
             }
             /* Remove margins/borders for physical thermal print */
             @media print {
               html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
                 width: ${printRotation === 'portrait' ? heightCss : widthCss} !important;
                 height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
               }
               .barcode-label {
                 border: none !important;
                 margin: 0 !important;
+                padding: ${printRotation === 'portrait' ? '0' : (selectedSize === 'micro' ? '0.6mm 1.2mm 0.4mm 1.2mm' : '1.5mm')} !important;
+                box-sizing: border-box !important;
+                width: ${printRotation === 'portrait' ? heightCss : widthCss} !important;
+                height: ${printRotation === 'portrait' ? widthCss : heightCss} !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
               }
             }
           </style>
@@ -220,60 +242,74 @@ export default function BarcodePrint() {
             ${Array(printQuantity).fill(0).map(() => {
               let innerHtml = '';
               if (selectedSize === 'micro') {
+                const productName = isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name;
+                const dynamicNameSize = getDynamicFontSize(productName, fontSizeAdjust);
                 innerHtml = `
-                  <!-- Row 1: Name and Price side-by-side -->
-                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 4px;">
-                    <div style="
-                      font-size: ${currentConfig.nameSize + fontSizeAdjust}px; 
-                      font-weight: 900; 
-                      flex-grow: 1;
-                      white-space: normal; 
-                      word-break: break-word;
-                      text-align: right;
-                      line-height: 1.1;
-                      color: #000000;
-                      max-height: 24px;
-                      overflow: hidden;
-                    ">
-                      ${isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}
-                    </div>
+                  <!-- Row 1: Product Name (centered, auto font resize) -->
+                  <div style="
+                    font-size: ${dynamicNameSize}px; 
+                    font-weight: 900; 
+                    width: 100%;
+                    white-space: nowrap; 
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    text-align: center;
+                    line-height: 1.1;
+                    color: #000000;
+                    margin-bottom: 0.5mm;
+                  ">
+                    ${productName}
+                  </div>
+
+                  <!-- Row 2: Price and Code side-by-side -->
+                  <div style="
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center; 
+                    width: 100%; 
+                    gap: 4px;
+                    margin-bottom: 0.5mm;
+                    padding: 0 0.5mm;
+                    box-sizing: border-box;
+                  ">
                     ${includePrice ? `
                       <div style="
-                        font-size: ${currentConfig.priceSize}px; 
+                        font-size: 11px; 
+                        font-weight: 900; 
+                        white-space: nowrap; 
+                        text-align: right;
+                        line-height: 1;
+                        color: #000000;
+                      ">
+                        ${selectedProduct.sellPrice.toFixed(0)} ${isRTL ? 'ج.م' : 'EGP'}
+                      </div>
+                    ` : ''}
+                    ${includeSku ? `
+                      <div style="
+                        font-size: 8.5px; 
+                        font-family: monospace; 
                         font-weight: 900; 
                         white-space: nowrap; 
                         text-align: left;
                         line-height: 1;
                         color: #000000;
-                        flex-shrink: 0;
                       ">
-                        ${selectedProduct.sellPrice.toFixed(0)} ج.م
+                        Code: ${selectedProduct.sku.replace('MOTO-', '')}
                       </div>
                     ` : ''}
                   </div>
 
-                  <!-- Row 2: Vector Barcode (centered, full width) -->
-                  <div class="barcode-svg" style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 1px 0;">
+                  <!-- Row 3: Vector Barcode (centered, full width) -->
+                  <div class="barcode-svg" style="
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center; 
+                    width: 100%; 
+                    height: 8.5mm;
+                    overflow: hidden;
+                  ">
                     ${document.querySelector('.print-preview-barcode svg')?.outerHTML || ''}
                   </div>
-
-                  <!-- Row 3: Product SKU (centered at bottom) -->
-                  ${includeSku ? `
-                    <div style="
-                      font-size: ${currentConfig.skuSize}px; 
-                      font-family: monospace; 
-                      font-weight: 900; 
-                      text-align: center;
-                      width: 100%;
-                      white-space: nowrap;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      line-height: 1;
-                      color: #000000;
-                    ">
-                      Code: ${selectedProduct.sku.replace('MOTO-', '')}
-                    </div>
-                  ` : ''}
                 `;
               } else {
                 innerHtml = `
@@ -611,7 +647,7 @@ export default function BarcodePrint() {
             <div className="flex flex-wrap gap-4 justify-center items-center">
               {/* STICKER CONTAINER IN PREVIEW */}
               <div 
-                className="bg-white border-2 border-black border-dashed rounded p-2 text-black flex flex-col items-center justify-center relative overflow-hidden transition-all shadow-md select-none"
+                className={`bg-white border-2 border-black border-dashed rounded text-black flex flex-col items-center relative overflow-hidden transition-all shadow-md select-none ${selectedSize === 'micro' ? 'justify-between p-[2px_4px_1px_4px]' : 'justify-center p-2'}`}
                 style={{
                   width: `${currentConfig.widthPx}px`,
                   height: `${currentConfig.heightPx}px`,
@@ -620,40 +656,55 @@ export default function BarcodePrint() {
               >
                 {selectedSize === 'micro' ? (
                   /* 🧪 High-Contrast micro landscape layout (40x20mm) */
-                  <div className="w-full h-full flex flex-col justify-between items-center text-black" style={{ padding: '1px' }}>
-                    {/* Row 1: Name and Price side-by-side */}
-                    <div className="flex justify-between items-center w-full" style={{ gap: '4px' }}>
-                      <div 
-                        className="font-black text-right flex-1"
-                        style={{ 
-                          fontSize: `${currentConfig.nameSize + fontSizeAdjust}px`,
-                          color: '#000000',
-                          lineHeight: '1.1',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                          maxHeight: '24px',
-                          overflow: 'hidden'
-                        }}
-                        title={isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}
-                      >
-                        {isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}
-                      </div>
+                  <div className="w-full h-full flex flex-col justify-between items-center text-black" style={{ padding: '0px' }}>
+                    {/* Row 1: Name (centered, auto font resize) */}
+                    <div 
+                      className="font-black text-center w-full"
+                      style={{ 
+                        fontSize: `${getDynamicFontSize(isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name, fontSizeAdjust)}px`,
+                        color: '#000000',
+                        lineHeight: '1.1',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                      title={isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}
+                    >
+                      {isRTL ? selectedProduct.nameAr || selectedProduct.name : selectedProduct.name}
+                    </div>
+
+                    {/* Row 2: Price and Code side-by-side */}
+                    <div className="flex justify-between items-center w-full" style={{ gap: '4px', margin: '1px 0' }}>
                       {includePrice && (
                         <div 
-                          className="font-black shrink-0 text-left"
+                          className="font-black shrink-0"
                           style={{ 
-                            fontSize: `${currentConfig.priceSize}px`,
+                            fontSize: '11px',
                             color: '#000000',
                             lineHeight: '1',
+                            whiteSpace: 'nowrap'
                           }}
                         >
-                          {selectedProduct.sellPrice.toFixed(0)} ج.م
+                          {selectedProduct.sellPrice.toFixed(0)} {isRTL ? 'ج.م' : 'EGP'}
+                        </div>
+                      )}
+                      {includeSku && (
+                        <div 
+                          className="font-mono font-black shrink-0"
+                          style={{ 
+                            fontSize: '8.5px',
+                            color: '#000000',
+                            lineHeight: '1',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          Code: {selectedProduct.sku.replace('MOTO-', '')}
                         </div>
                       )}
                     </div>
 
-                    {/* Row 2: Full-width Vector Barcode taking most space */}
-                    <div className="print-preview-barcode flex justify-center items-center w-full shrink-0 animate-pulse" style={{ margin: '1px 0' }}>
+                    {/* Row 3: Full-width Vector Barcode taking bottom space */}
+                    <div className="print-preview-barcode flex justify-center items-center w-full shrink-0" style={{ height: '32px', overflow: 'hidden' }}>
                       <Barcode 
                         value={selectedProduct.barcode || selectedProduct.sku} 
                         format="CODE128"
@@ -666,16 +717,6 @@ export default function BarcodePrint() {
                         displayValue={false}
                       />
                     </div>
-
-                    {/* Row 3: Product Code (SKU) centered at the very bottom */}
-                    {includeSku && (
-                      <div 
-                        className="font-mono font-black text-center w-full truncate leading-none text-slate-900"
-                        style={{ fontSize: `${currentConfig.skuSize}px`, letterSpacing: '0.2px' }}
-                      >
-                        Code: {selectedProduct.sku.replace('MOTO-', '')}
-                      </div>
-                    )}
                   </div>
                 ) : (
                   /* 📦 Standard portrait/balanced multi-size layout */
