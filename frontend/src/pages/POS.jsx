@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, ShoppingCart, Trash2, Plus, Minus, UserPlus, 
@@ -9,13 +9,12 @@ import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import ProfessionalInvoice from '../components/ProfessionalInvoice';
+import { PRODUCT_TYPES } from '../lib/exportUtils';
 
-// Browser-native Web Audio API Sound Synthesizer (No external assets required!)
 const playSound = (type) => {
   try {
     const isSuccessSoundEnabled = localStorage.getItem('barcode_sound_success') !== 'false';
     const isFailSoundEnabled = localStorage.getItem('barcode_sound_fail') !== 'false';
-    
     if (type === 'success' && !isSuccessSoundEnabled) return;
     if (type === 'fail' && !isFailSoundEnabled) return;
 
@@ -28,21 +27,21 @@ const playSound = (type) => {
 
     if (type === 'success') {
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime); // Realistic high-frequency beep
+      oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.08);
     } else {
       oscillator.type = 'sawtooth';
-      oscillator.frequency.setValueAtTime(130, audioCtx.currentTime); // Solid buzz error sound
+      oscillator.frequency.setValueAtTime(130, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.35);
     }
   } catch (e) {
-    console.error("Web Audio API blocked or not supported:", e);
+    console.error("Audio error:", e);
   }
 };
 
@@ -58,6 +57,11 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [loading, setLoading] = useState(false);
   
+  // Filtering
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedProductType, setSelectedProductType] = useState('');
+
   // Modals & Drawers
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [lastInvoice, setLastInvoice] = useState(null);
@@ -70,24 +74,21 @@ export default function POS() {
 
   const invoiceRef = useRef();
 
-  // Custom Receipt & Printer Configurations
+  // Receipt settings
   const [paperSize, setPaperSize] = useState(() => localStorage.getItem('receipt_paper_size') || '80mm');
   const [autoPrint, setAutoPrint] = useState(() => localStorage.getItem('receipt_auto_print') === 'true');
 
-  // Periodic Auto-Focus to keep cursor in the barcode/search input at all times!
   useEffect(() => {
     const focusInterval = setInterval(() => {
       const active = document.activeElement;
       const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName);
-      // If no input is active, auto-refocus our search input to keep keyboard wedges operational!
       if (!isInputActive) {
         document.getElementById('posSearchInput')?.focus();
       }
-    }, 1500); // Check every 1.5s
+    }, 1500);
     return () => clearInterval(focusInterval);
   }, []);
 
-  // Debounce search to eliminate high-speed scanner API race conditions
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -95,45 +96,52 @@ export default function POS() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [debouncedSearch]);
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
       const cleanSearch = debouncedSearch.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
 
-      const res = await api.get(`/products?search=${cleanSearch}&limit=10000`);
+      const params = new URLSearchParams();
+      params.set('limit', '10000');
+      if (cleanSearch) params.set('search', cleanSearch);
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (selectedProductType) params.set('product_type', selectedProductType);
+
+      const res = await api.get(`/products?${params.toString()}`);
       const list = res.data.data;
       setProducts(list);
 
-      // SMART AUTO-ADD SCANNER FALLBACK!
-      // If the search text exactly matches a product's barcode or SKU, add it to the cart instantly!
+      // Barcode auto-add scanner feature
       if (cleanSearch && cleanSearch.length >= 3) {
         const exactMatch = list.find(p => 
           (p.barcode && p.barcode.toUpperCase() === cleanSearch.toUpperCase()) || 
           (p.sku && p.sku.toUpperCase() === cleanSearch.toUpperCase())
         );
-        
         if (exactMatch) {
           addToCart(exactMatch);
-          setSearch(''); // Clear the search input instantly!
+          setSearch('');
         }
       }
     } catch {}
-  };
+  }, [debouncedSearch, selectedCategory, selectedProductType]);
 
-  const fetchCustomers = async () => {
-    try {
-      const res = await api.get('/contacts/customers');
-      setCustomers(res.data.data);
-    } catch {}
-  };
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const [catRes, custRes] = await Promise.all([
+          api.get('/products/categories'),
+          api.get('/contacts?type=customer')
+        ]);
+        setCategories(catRes.data.data || []);
+        setCustomers(custRes.data.data || []);
+      } catch {}
+    };
+    loadFilters();
+  }, []);
 
   const fetchRecentSales = async () => {
     setSalesLoading(true);
@@ -148,12 +156,10 @@ export default function POS() {
   };
 
   const handleScanBarcode = async (barcode) => {
-    // Convert Arabic eastern numerals (١٢٣٤٥٦٧٨٩٠) to English standard numerals (1234567890)
     const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     let cleanBarcode = barcode.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
     const cmd = cleanBarcode.toUpperCase();
 
-    // 2D Scanner Command Codes
     if (cmd === 'CMD-PAY' || cmd === 'CMD-CHECKOUT' || cmd === 'PAY') {
       playSound('success');
       handleCheckout();
@@ -169,19 +175,19 @@ export default function POS() {
     if (cmd === 'CMD-CASH' || cmd === 'CASH') {
       playSound('success');
       setPaymentMethod('cash');
-      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى نقدي' : 'Payment method changed to Cash');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى نقدي' : 'Cash selected');
       return;
     }
     if (cmd === 'CMD-CARD' || cmd === 'CARD') {
       playSound('success');
       setPaymentMethod('card');
-      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى فيزا / تحويل' : 'Payment method changed to Card');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى فيزا / تحويل' : 'Card selected');
       return;
     }
     if (cmd === 'CMD-CREDIT' || cmd === 'CREDIT') {
       playSound('success');
       setPaymentMethod('credit');
-      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى آجل / قسط' : 'Payment method changed to Credit/Installment');
+      toast.success(isRTL ? 'تم تغيير طريقة الدفع إلى آجل / قسط' : 'Credit selected');
       return;
     }
 
@@ -196,16 +202,11 @@ export default function POS() {
       }
     } catch (err) {
       playSound('fail');
-      console.error('POS Barcode Scan Fail:', err);
       const errMsg = err.response?.data?.message || err.message;
-      toast.error(isRTL 
-        ? `الماسح التقط كود (${cleanBarcode}) ولكن: ${errMsg}` 
-        : `Scanner read (${cleanBarcode}) but: ${errMsg}`
-      );
+      toast.error(isRTL ? `فشل الماسح: ${errMsg}` : `Scanner read fail: ${errMsg}`);
     }
   };
 
-  // Toggle Fullscreen Mode
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen()
@@ -218,13 +219,12 @@ export default function POS() {
     }
   };
 
-  // Keyboard Shortcuts & Scanner Hook (Optimized for 2D Wired Scanners with Fallback for no-Enter models)
+  // Keyboard Shortcuts Hook
   useEffect(() => {
     let keyTimes = [];
     let barcodeBuffer = '';
     let scanTimeout = null;
 
-    // Auto-focus search box on mount to ensure scanner catches input instantly
     setTimeout(() => {
       document.getElementById('posSearchInput')?.focus();
     }, 400);
@@ -240,16 +240,12 @@ export default function POS() {
             totalDelay += (times[i] - times[i - 1]);
           }
           const avgDelay = totalDelay / (times.length - 1);
-          // Scanner average speed is extremely fast (<50ms per key)
-          if (avgDelay < 50) {
-            isScanner = true;
-          }
+          if (avgDelay < 50) isScanner = true;
         } else if (!isInputActive) {
           isScanner = true;
         }
 
         if (isScanner) {
-          // Auto-clean active inputs to eliminate the scanner's typed characters immediately
           if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
             const el = document.activeElement;
             el.value = '';
@@ -257,7 +253,6 @@ export default function POS() {
               setSearch('');
             }
           }
-
           handleScanBarcode(buffer.trim());
         }
       }
@@ -268,7 +263,6 @@ export default function POS() {
     const handleKeyDown = (e) => {
       const currentTime = Date.now();
 
-      // Global POS Shortcuts (F-Keys & Escape)
       if (e.key === 'F2') {
         e.preventDefault();
         handleCheckout();
@@ -302,22 +296,12 @@ export default function POS() {
         return;
       }
 
-      // If already focused on the search box, let native typing and the debounced search fetch handle it!
-      if (document.activeElement?.id === 'posSearchInput') {
-        return;
-      }
-
-      // Collect only single character typing and 'Enter' for barcode scanner buffering
-      if (e.key !== 'Enter' && e.key.length !== 1) {
-        return;
-      }
+      if (document.activeElement?.id === 'posSearchInput') return;
+      if (e.key !== 'Enter' && e.key.length !== 1) return;
 
       const isInputActive = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
       const lastKeyTime = keyTimes[keyTimes.length - 1] || 0;
 
-      // Smart redirection for scanner input:
-      // If we see high speed typing (delay < 50ms) and we are not in the main search input,
-      // redirect the focus to the search box instantly!
       if (lastKeyTime && (currentTime - lastKeyTime < 50)) {
         if (isInputActive && document.activeElement.id !== 'posSearchInput') {
           const activeEl = document.activeElement;
@@ -326,13 +310,11 @@ export default function POS() {
         }
       }
 
-      // Clear any pending automatic submission timeout
       if (scanTimeout) {
         clearTimeout(scanTimeout);
         scanTimeout = null;
       }
 
-      // If the delay is more than 200ms, treat it as a new distinct scan or manual entry
       if (lastKeyTime && (currentTime - lastKeyTime > 200)) {
         barcodeBuffer = '';
         keyTimes = [];
@@ -344,12 +326,9 @@ export default function POS() {
         return;
       }
 
-      // Buffer the key and store the precise keystroke time
       barcodeBuffer += e.key;
       keyTimes.push(currentTime);
 
-      // Set a timeout to automatically submit the scan if no keys are typed for 50ms.
-      // This is crucial for hardware scanners that do NOT send an 'Enter' or 'Tab' suffix!
       scanTimeout = setTimeout(() => {
         processScan(barcodeBuffer, keyTimes);
       }, 50);
@@ -433,7 +412,6 @@ export default function POS() {
       setShowInvoiceModal(true);
       resetPOS();
 
-      // Automatic print execution upon sales completion
       const isAutoPrint = localStorage.getItem('receipt_auto_print') === 'true';
       if (isAutoPrint) {
         setTimeout(() => {
@@ -451,9 +429,7 @@ export default function POS() {
               <html>
                 <head>
                   <title>Print Invoice</title>
-                  <style>
-                    body { margin: 0; padding: 0; background: #fff; }
-                  </style>
+                  <style>body { margin: 0; padding: 0; background: #fff; }</style>
                 </head>
                 <body onload="setTimeout(function(){ window.print(); window.parent.document.body.removeChild(window.frameElement); }, 500)">
                   ${printElement.innerHTML}
@@ -472,14 +448,14 @@ export default function POS() {
   };
 
   const handleRefundSale = async (id) => {
-    if (!window.confirm(isRTL ? 'هل أنت متأكد من إلغاء هذه الفاتورة وإرجاع الأصناف للمخزن (مرتجع مبيعات)؟' : 'Are you sure you want to refund this sale and return items to stock?')) return;
+    if (!window.confirm(isRTL ? 'هل أنت متأكد من إلغاء هذه الفاتورة وإرجاع الأصناف للمخزن؟' : 'Refund sale?')) return;
     try {
       await api.put(`/sales/${id}/cancel`);
-      toast.success(isRTL ? 'تم تسجيل مرتجع المبيعات وتحديث المخزن' : 'Sale refunded and stock updated');
+      toast.success(isRTL ? 'تم تسجيل مرتجع المبيعات وتحديث المخزن' : 'Sale refunded');
       fetchRecentSales();
       fetchProducts();
-    } catch (err) {
-      toast.error(isRTL ? 'فشل معالجة المرتجع' : 'Failed to process return');
+    } catch {
+      toast.error(isRTL ? 'فشل معالجة المرتجع' : 'Refund failed');
     }
   };
 
@@ -508,28 +484,25 @@ export default function POS() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Recent sales drawer button */}
           <button 
             onClick={() => { fetchRecentSales(); setShowSalesDrawer(true); }}
-            className="btn btn-secondary h-11 px-4 gap-2 text-xs font-bold border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] hover:border-orange-500/40 text-orange-400"
+            className="btn btn-secondary h-11 px-4 gap-2 text-xs font-bold border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] text-orange-400"
           >
             <RotateCcw size={16} />
             {isRTL ? 'سجل فواتير اليوم / المرتجعات' : 'Sales History / Returns'}
           </button>
 
-          {/* Keyboard Shortcuts */}
           <button 
             onClick={() => setShowShortcutsHelp(true)}
-            className="btn btn-secondary h-11 w-11 p-0 flex items-center justify-center border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] hover:border-blue-500/40 text-blue-400"
+            className="btn btn-secondary h-11 w-11 p-0 flex items-center justify-center border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] text-blue-400"
             title={isRTL ? 'اختصارات الكيبورد' : 'Keyboard Shortcuts'}
           >
             <Keyboard size={18} />
           </button>
 
-          {/* Fullscreen Toggle */}
           <button 
             onClick={toggleFullScreen}
-            className="btn btn-secondary h-11 w-11 p-0 flex items-center justify-center border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] hover:border-purple-500/40 text-purple-400"
+            className="btn btn-secondary h-11 w-11 p-0 flex items-center justify-center border-[var(--border)] rounded-2xl bg-[var(--bg-card2)] text-purple-400"
             title={isRTL ? 'شاشة كاملة' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -562,6 +535,34 @@ export default function POS() {
             </div>
           </div>
 
+          {/* Quick Filters */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <button 
+              onClick={() => { setSelectedProductType(''); setSelectedCategory(''); }}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${!selectedProductType && !selectedCategory ? 'bg-orange-500 text-white' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}
+            >
+              {isRTL ? 'كل المنتجات' : 'All Products'}
+            </button>
+            {PRODUCT_TYPES.map(type => (
+              <button 
+                key={type.value}
+                onClick={() => { setSelectedProductType(type.value); setSelectedCategory(''); }}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${selectedProductType === type.value ? 'bg-orange-500 text-white' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}
+              >
+                {isRTL ? type.labelAr : type.labelEn}
+              </button>
+            ))}
+            {categories.map(cat => (
+              <button 
+                key={cat._id}
+                onClick={() => { setSelectedCategory(cat._id); setSelectedProductType(''); }}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${selectedCategory === cat._id ? 'bg-orange-500 text-white' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}
+              >
+                {isRTL ? cat.nameAr || cat.name : cat.name}
+              </button>
+            ))}
+          </div>
+
           <div className="flex-1 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
             {products.map(p => (
               <motion.div 
@@ -571,7 +572,7 @@ export default function POS() {
               >
                 <div>
                   <div className="text-[10px] font-black text-orange-500 mb-1 uppercase tracking-widest">{p.sku}</div>
-                  <div className="font-bold text-sm line-clamp-2 min-h-[40px] leading-tight">{isRTL ? p.nameAr || p.name : p.name}</div>
+                  <div className="font-bold text-sm line-clamp-2 min-h-[40px] leading-tight">{isRTL ? p.nameAr || p.name : p.name || p.nameAr}</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-[var(--border)]/50">
                   <div className="text-orange-500 font-black text-lg">{p.sellPrice} <span className="text-[10px] font-bold opacity-60">{t('currency')}</span></div>
@@ -610,7 +611,7 @@ export default function POS() {
             {cart.map(item => (
               <div key={item.productId} className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--bg-card2)] border border-[var(--border)] group relative">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold truncate pr-4">{isRTL ? item.nameAr || item.name : item.name}</div>
+                  <div className="text-sm font-bold truncate pr-4">{isRTL ? item.nameAr || item.name : item.name || item.nameAr}</div>
                   <div className="text-sm text-orange-500 font-black">{item.price} {t('currency')}</div>
                 </div>
                 <div className="flex items-center bg-[var(--bg-dark)] rounded-xl border border-[var(--border)] overflow-hidden h-10 shrink-0">
@@ -685,9 +686,7 @@ export default function POS() {
                   <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">{lastInvoice.invoiceNumber}</p>
                 </div>
                 
-                {/* Real-time Receipt Print Settings Panel */}
                 <div className="flex flex-wrap items-center gap-4">
-                  {/* Paper Size selector */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-[var(--text-muted)]">{isRTL ? 'عرض ريسيت الطابعة:' : 'Receipt Width:'}</span>
                     <select
@@ -703,7 +702,6 @@ export default function POS() {
                     </select>
                   </div>
 
-                  {/* Auto Print Checkbox */}
                   <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[var(--text-muted)] select-none">
                     <input
                       type="checkbox"
@@ -740,9 +738,7 @@ export default function POS() {
                         <html>
                           <head>
                             <title>Print Invoice</title>
-                            <style>
-                              body { margin: 0; padding: 0; background: #fff; }
-                            </style>
+                            <style>body { margin: 0; padding: 0; background: #fff; }</style>
                           </head>
                           <body onload="setTimeout(function(){ window.print(); window.parent.document.body.removeChild(window.frameElement); }, 500)">
                             ${printElement.innerHTML}
@@ -761,7 +757,6 @@ export default function POS() {
                 </div>
               </div>
 
-              {/* High-fidelity visual physical paper preview pane */}
               <div className="flex-1 overflow-auto bg-slate-900 p-6 flex justify-center items-start">
                 <div id="pos-print-area">
                   <ProfessionalInvoice ref={invoiceRef} sale={lastInvoice} receiptWidth={paperSize} />
@@ -772,7 +767,7 @@ export default function POS() {
         )}
       </AnimatePresence>
 
-      {/* Keyboard Shortcuts & 2D Scanner Commands Help Modal */}
+      {/* Keyboard Shortcuts Modal */}
       <AnimatePresence>
         {showShortcutsHelp && (
           <div className="modal-overlay z-50">
@@ -783,18 +778,17 @@ export default function POS() {
               <div className="flex justify-between items-center pb-4 border-b border-[var(--border)]">
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                   <Keyboard className="text-orange-500" />
-                  {isRTL ? 'مركز التحكم السريع (الكيبورد والماسح)' : 'POS Control Center (Keyboard & Scanner)'}
+                  {isRTL ? 'مركز التحكم السريع (الكيبورد والماسح)' : 'POS Control Center'}
                 </h3>
                 <button onClick={() => setShowShortcutsHelp(false)} className="btn btn-ghost h-9 w-9 p-0 rounded-full"><X size={18} /></button>
               </div>
 
               <div className="py-6 space-y-6 max-h-[60vh] overflow-y-auto pr-1">
-                {/* Keyboard Section */}
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 mb-3">{isRTL ? 'اختصارات لوحة المفاتيح' : 'Keyboard Shortcuts'}</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام الفاتورة والبيع' : 'Pay and complete checkout'}</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام الفاتورة والبيع' : 'Pay and complete'}</span>
                       <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-500">F2</kbd>
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -802,40 +796,34 @@ export default function POS() {
                       <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">F9</kbd>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تكبير / تصغير الشاشة الكاملة' : 'Toggle Fullscreen Mode'}</span>
-                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-purple-400">F4</kbd>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'شاشة كاملة' : 'Toggle Fullscreen'}</span>
+                      <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-purple-400">F11</kbd>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تصفير السلة / إلغاء' : 'Clear / reset cart'}</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تصفير السلة / إلغاء' : 'Clear current cart'}</span>
                       <kbd className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-500">ESC</kbd>
                     </div>
                   </div>
                 </div>
 
-                {/* 2D Scanner Command Codes Section */}
                 <div className="pt-4 border-t border-[var(--border)]/50">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-500 mb-3">{isRTL ? 'أكواد التحكم للماسح 2D (اطبعها ورشها بجانبك)' : '2D Scanner Command Codes (Print & Scan)'}</h4>
-                  <p className="text-[11px] text-[var(--text-muted)] mb-4">{isRTL ? 'يمكنك طباعة هذه الأكواد كملصقات باركود ومسحها بالماسح للتحكم الفوري دون لمس الماوس:' : 'Print these values as barcodes to trigger actions directly using your 2D scanner:'}</p>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-emerald-500 mb-3">{isRTL ? 'أكواد الماسح' : 'Scanner Codes'}</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام ودفع الفاتورة فوراً' : 'Complete and process checkout'}</span>
-                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-emerald-400">CMD-PAY</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'إتمام الفاتورة' : 'Complete and pay'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-emerald-400">CMD-PAY / PAY</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تفريغ وتصفير سلة المشتريات' : 'Clear/Reset entire cart'}</span>
-                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-400">CMD-CLEAR</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تفريغ السلة' : 'Clear/Reset cart'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-red-400">CMD-CLEAR / CLEAR</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ كاش (نقدي)' : 'Switch payment method to Cash'}</span>
-                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-400">CMD-CASH</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'طريقة الدفع نقدي' : 'Switch to Cash'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-orange-400">CMD-CASH / CASH</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ فيزا (كارت)' : 'Switch payment method to Card'}</span>
-                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">CMD-CARD</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'تحويل طريقة الدفع لـ آجل / قسط' : 'Switch payment method to Credit/Installment'}</span>
-                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-amber-400">CMD-CREDIT</span>
+                      <span className="text-[var(--text-muted)] font-bold">{isRTL ? 'طريقة الدفع فيزا' : 'Switch to Card'}</span>
+                      <span className="px-3 py-1.5 rounded-lg bg-[var(--bg-card2)] border border-[var(--border)] font-mono font-black text-blue-400">CMD-CARD / CARD</span>
                     </div>
                   </div>
                 </div>
@@ -847,7 +835,7 @@ export default function POS() {
         )}
       </AnimatePresence>
 
-      {/* Recent Invoices & Returns Drawer Modal */}
+      {/* Recent Invoices drawer */}
       <AnimatePresence>
         {showSalesDrawer && (
           <div className="modal-overlay z-50">
@@ -861,7 +849,6 @@ export default function POS() {
                     <RotateCcw className="text-orange-500" />
                     {isRTL ? 'سجل مبيعات اليوم ومرتجعات الكاشير' : 'Sales Logs & Cashier Returns'}
                   </h3>
-                  <p className="text-xs text-[var(--text-muted)] mt-1">{isRTL ? 'إلغاء فواتير البيع وإعادة الأصناف للمخزن فوراً' : 'Cancel invoices and restore inventory instantly'}</p>
                 </div>
                 <button onClick={() => setShowSalesDrawer(false)} className="btn btn-ghost h-10 w-10 p-0 rounded-full"><X size={20} /></button>
               </div>

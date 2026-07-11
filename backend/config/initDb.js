@@ -60,7 +60,10 @@ const initializeDatabase = async () => {
       { name: 'Tires & Wheels', nameAr: 'الإطارات والعجلات', icon: '🔵', color: '#06b6d4' },
       { name: 'Oils & Lubricants', nameAr: 'الزيوت والشحوم', icon: '🛢️', color: '#10b981' },
       { name: 'Helmets & Safety', nameAr: 'الخوذه والامان', icon: '🪖', color: '#6b7280' },
-      { name: 'Accessories & Extras', nameAr: 'كماليات واكسسوارات', icon: '✨', color: '#ec4899' }
+      { name: 'Accessories & Extras', nameAr: 'كماليات واكسسوارات', icon: '✨', color: '#ec4899' },
+      { name: 'Motorcycles', nameAr: 'الموتسيكلات', icon: '🏍️', color: '#f59e0b' },
+      { name: 'Scooters', nameAr: 'السكوترات', icon: '🛵', color: '#6366f1' },
+      { name: 'Batteries', nameAr: 'البطاريات', icon: '🔋', color: '#0ea5e9' },
     ];
 
     for (const cat of defaultCategories) {

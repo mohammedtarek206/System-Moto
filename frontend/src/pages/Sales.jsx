@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Search, Eye, XCircle, Download, 
-  CreditCard, Banknote, RefreshCw, X, Printer, Package, FileDown
+  CreditCard, Banknote, RefreshCw, X, Printer, Package, FileDown, Filter
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
@@ -12,18 +12,26 @@ import { useReactToPrint } from 'react-to-print';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import ProfessionalInvoice from '../components/ProfessionalInvoice';
+import { PRODUCT_TYPES } from '../lib/exportUtils';
 
 export default function Sales() {
   const { t, isRTL, lang } = useLang();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSale, setSelectedSale] = useState(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     status: '',
     paymentMethod: '',
     from_date: '',
-    to_date: ''
+    to_date: '',
+    customer: '',
+    cashier: '',
+    product_type: '',
+    sale_category: '',
+    min_price: '',
+    max_price: ''
   });
 
   const invoiceRef = useRef();
@@ -52,7 +60,11 @@ export default function Sales() {
   const fetchSales = async () => {
     setLoading(true);
     try {
-      const query = new URLSearchParams(filters).toString();
+      const cleanFilters = {};
+      Object.keys(filters).forEach(k => {
+        if (filters[k] !== '') cleanFilters[k] = filters[k];
+      });
+      const query = new URLSearchParams(cleanFilters).toString();
       const res = await api.get(`/sales?${query}`);
       setSales(Array.isArray(res.data.data) ? res.data.data : []);
     } catch (err) {
@@ -69,7 +81,8 @@ export default function Sales() {
       [isRTL ? 'العميل' : 'Customer']: s.customer?.name || (isRTL ? 'عميل نقدي' : 'Cash'),
       [isRTL ? 'طريقة الدفع' : 'Payment']: s.paymentMethod,
       [isRTL ? 'الإجمالي' : 'Total']: s.totalAmount,
-      [isRTL ? 'الحالة' : 'Status']: s.status
+      [isRTL ? 'الحالة' : 'Status']: s.status,
+      [isRTL ? 'نوع المبيعات' : 'Sale Category']: s.saleCategory || '-'
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -88,31 +101,116 @@ export default function Sales() {
           <h1 className="page-title">{t('sales')}</h1>
           <p className="page-subtitle">{isRTL ? 'سجل المبيعات والفواتير' : 'Sales history and invoices'}</p>
         </div>
-        <button onClick={handleExportExcel} className="btn btn-secondary gap-2">
-          <Download size={18} /> {isRTL ? 'تصدير الإكسل' : 'Export Excel'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} 
+            className={`btn gap-2 ${showAdvancedFilters ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <Filter size={18} /> {isRTL ? 'فلترة متقدمة' : 'Advanced Filters'}
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-secondary gap-2">
+            <Download size={18} /> {isRTL ? 'تصدير الإكسل' : 'Export Excel'}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border)]">
-        <div className="relative search-input md:col-span-1">
-          <Search className="search-icon" size={16} />
-          <input 
-            type="text" className="form-input" placeholder={isRTL ? 'رقم الفاتورة أو الباركود...' : 'Invoice No. or Barcode...'}
-            value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})}
-          />
+      <div className="card space-y-4">
+        {/* Simple Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="relative search-input md:col-span-1">
+            <Search className="search-icon" size={16} />
+            <input 
+              type="text" className="form-input" placeholder={isRTL ? 'رقم الفاتورة أو الباركود...' : 'Invoice No. or Barcode...'}
+              value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})}
+            />
+          </div>
+          <select className="form-input" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
+            <option value="">{isRTL ? 'كل الحالات' : 'All Status'}</option>
+            <option value="completed">{t('completed')}</option>
+            <option value="cancelled">{t('cancelled')}</option>
+          </select>
+          <select className="form-input" value={filters.paymentMethod} onChange={e => setFilters({...filters, paymentMethod: e.target.value})}>
+            <option value="">{isRTL ? 'كل طرق الدفع' : 'All Payments'}</option>
+            <option value="cash">{t('cash')}</option>
+            <option value="card">{t('card')}</option>
+            <option value="credit">{t('credit')}</option>
+          </select>
+          <input type="date" className="form-input" value={filters.from_date} onChange={e => setFilters({...filters, from_date: e.target.value})} />
+          <input type="date" className="form-input" value={filters.to_date} onChange={e => setFilters({...filters, to_date: e.target.value})} />
         </div>
-        <select className="form-input" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
-          <option value="">{isRTL ? 'كل الحالات' : 'All Status'}</option>
-          <option value="completed">{t('completed')}</option>
-          <option value="cancelled">{t('cancelled')}</option>
-        </select>
-        <select className="form-input" value={filters.paymentMethod} onChange={e => setFilters({...filters, paymentMethod: e.target.value})}>
-          <option value="">{isRTL ? 'كل طرق الدفع' : 'All Payments'}</option>
-          <option value="cash">{t('cash')}</option>
-          <option value="card">{t('card')}</option>
-        </select>
-        <input type="date" className="form-input" value={filters.from_date} onChange={e => setFilters({...filters, from_date: e.target.value})} />
-        <input type="date" className="form-input" value={filters.to_date} onChange={e => setFilters({...filters, to_date: e.target.value})} />
+
+        {/* Advanced Filters */}
+        <AnimatePresence>
+          {showAdvancedFilters && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-[var(--border)]"
+            >
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'اسم العميل' : 'Customer Name'}</label>
+                <input 
+                  type="text" className="form-input" placeholder={isRTL ? 'ابحث باسم العميل...' : 'Customer...'}
+                  value={filters.customer} onChange={e => setFilters({...filters, customer: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'اسم الكاشير' : 'Cashier'}</label>
+                <input 
+                  type="text" className="form-input" placeholder={isRTL ? 'اسم الموظف...' : 'Cashier...'}
+                  value={filters.cashier} onChange={e => setFilters({...filters, cashier: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'نوع المنتج بالفاتورة' : 'Product Type'}</label>
+                <select className="form-input" value={filters.product_type} onChange={e => setFilters({...filters, product_type: e.target.value})}>
+                  <option value="">{isRTL ? 'الكل' : 'All'}</option>
+                  {PRODUCT_TYPES.map(pt => (
+                    <option key={pt.value} value={pt.value}>{isRTL ? pt.labelAr : pt.labelEn}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'تصنيف المبيعات' : 'Sale Category'}</label>
+                <select className="form-input" value={filters.sale_category} onChange={e => setFilters({...filters, sale_category: e.target.value})}>
+                  <option value="">{isRTL ? 'الكل' : 'All'}</option>
+                  <option value="spare_parts">{isRTL ? 'قطع غيار' : 'Spare Parts'}</option>
+                  <option value="oils">{isRTL ? 'زيوت' : 'Oils'}</option>
+                  <option value="motorcycles">{isRTL ? 'موتسيكلات' : 'Motorcycles'}</option>
+                  <option value="scooters">{isRTL ? 'سكوترات' : 'Scooters'}</option>
+                  <option value="mixed">{isRTL ? 'متنوعة' : 'Mixed'}</option>
+                  <option value="other">{isRTL ? 'أخرى' : 'Other'}</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'الحد الأدنى للسعر' : 'Min Price'}</label>
+                <input 
+                  type="number" className="form-input" placeholder="0"
+                  value={filters.min_price} onChange={e => setFilters({...filters, min_price: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">{isRTL ? 'الحد الأقصى للسعر' : 'Max Price'}</label>
+                <input 
+                  type="number" className="form-input" placeholder="100000"
+                  value={filters.max_price} onChange={e => setFilters({...filters, max_price: e.target.value})}
+                />
+              </div>
+              <div className="md:col-span-2 flex items-end gap-2 justify-end">
+                <button 
+                  onClick={() => setFilters({
+                    search: '', status: '', paymentMethod: '', from_date: '', to_date: '',
+                    customer: '', cashier: '', product_type: '', sale_category: '', min_price: '', max_price: ''
+                  })} 
+                  className="btn btn-secondary text-xs h-10 px-4 rounded-xl"
+                >
+                  {isRTL ? 'إعادة ضبط الفلاتر' : 'Reset Filters'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="table-wrapper">
@@ -126,14 +224,15 @@ export default function Sales() {
                 <th>{t('paymentMethod')}</th>
                 <th>{t('total')}</th>
                 <th>{t('status')}</th>
+                <th>{isRTL ? 'تصنيف المبيعات' : 'Sale Category'}</th>
                 <th>{t('actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                [...Array(5)].map((_, i) => <tr key={i}><td colSpan="7"><div className="h-10 skeleton my-1" /></td></tr>)
+                [...Array(5)].map((_, i) => <tr key={i}><td colSpan="8"><div className="h-10 skeleton my-1" /></td></tr>)
               ) : sales.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-20 text-[var(--text-muted)]">{t('noData')}</td></tr>
+                <tr><td colSpan="8" className="text-center py-20 text-[var(--text-muted)]">{t('noData')}</td></tr>
               ) : sales.map(sale => (
                 <tr key={sale._id}>
                   <td className="font-mono text-xs font-bold text-orange-500">{sale.invoiceNumber}</td>
@@ -149,6 +248,11 @@ export default function Sales() {
                   <td>
                     <span className={`badge ${sale.status === 'completed' ? 'badge-success' : 'badge-danger'}`}>
                       {t(sale.status)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="badge badge-warning text-xs">
+                      {sale.saleCategory ? (isRTL ? t(sale.saleCategory) : sale.saleCategory) : '-'}
                     </span>
                   </td>
                   <td>
@@ -186,7 +290,6 @@ export default function Sales() {
                       const printElement = document.getElementById('sales-print-area');
                       if (!printElement) return;
 
-                      // Create temporary iframe for paper receipt printing
                       const iframe = document.createElement('iframe');
                       iframe.style.position = 'fixed';
                       iframe.style.right = '0';
@@ -222,7 +325,6 @@ export default function Sales() {
                   </button>
                 </div>
 
-                {/* Real-time Receipt settings toggle inside Sales Log */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-500">{isRTL ? 'عرض ريسيت الطابعة:' : 'Receipt Width:'}</span>
                   <select

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, TrendingDown, Package, Users, ShoppingCart, 
-  AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Clock
+  AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Clock,
+  Wallet, Landmark, Receipt
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,24 +17,29 @@ export default function Dashboard() {
   const { t, isRTL, lang } = useLang();
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [capital, setCapital] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const res = await api.get('/dashboard/stats');
-        setStats(res.data.data);
+        const [statsRes, capRes] = await Promise.all([
+          api.get('/dashboard/stats'),
+          api.get('/capital/summary')
+        ]);
+        setStats(statsRes.data.data);
+        setCapital(capRes.data.data);
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    fetchStats();
+    fetchDashboardData();
   }, []);
 
   if (loading) return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
       {[...Array(4)].map((_, i) => (
         <div key={i} className="stat-card h-32 skeleton" />
       ))}
@@ -42,7 +48,7 @@ export default function Dashboard() {
 
   const formatCurrency = (val) => new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', {
     style: 'currency', currency: 'EGP'
-  }).format(val);
+  }).format(val || 0);
 
   return (
     <div className="space-y-6 fade-in">
@@ -53,12 +59,42 @@ export default function Dashboard() {
             {isRTL ? 'مرحباً، ' : 'Welcome, '}{user?.name} 👋
           </h2>
           <p className="text-[var(--text-muted)] text-sm">
-            {isRTL ? 'إليك ما يحدث في المحل اليوم' : "Here's what's happening in your shop today"}
+            {isRTL ? 'إليك ما يحدث في المحل اليوم والمركز المالي' : "Here's what's happening in your shop today"}
           </p>
         </div>
         <div className="flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border)] p-2 rounded-2xl">
           <Clock size={16} className="text-orange-500" />
           <span className="text-sm font-bold">{new Date().toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>
+      </div>
+
+      {/* Financial Status Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="card bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 p-5 rounded-3xl">
+          <div className="flex-between">
+            <span className="text-sm text-[var(--text-secondary)] font-bold">{isRTL ? 'رأس المال الحالي' : 'Current Capital'}</span>
+            <Landmark className="text-emerald-400" size={24} />
+          </div>
+          <div className="text-3xl font-black text-white mt-2">{formatCurrency(capital?.currentCapital)}</div>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{isRTL ? 'شاملاً الإيرادات ناقص المصروفات' : 'Including revenues minus expenses'}</p>
+        </div>
+        
+        <div className="card bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/20 p-5 rounded-3xl">
+          <div className="flex-between">
+            <span className="text-sm text-[var(--text-secondary)] font-bold">{isRTL ? 'إجمالي الإيرادات' : 'Total Revenue'}</span>
+            <TrendingUp className="text-blue-400" size={24} />
+          </div>
+          <div className="text-3xl font-black text-white mt-2">{formatCurrency(capital?.totalRevenue)}</div>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{isRTL ? 'مبيعات المنتجات والزيادات المالية' : 'Product sales and positive adjustments'}</p>
+        </div>
+
+        <div className="card bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 p-5 rounded-3xl">
+          <div className="flex-between">
+            <span className="text-sm text-[var(--text-secondary)] font-bold">{isRTL ? 'إجمالي المصروفات' : 'Total Expenses'}</span>
+            <TrendingDown className="text-orange-400" size={24} />
+          </div>
+          <div className="text-3xl font-black text-white mt-2">{formatCurrency(capital?.totalExpenses)}</div>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{isRTL ? 'يشمل إيجارات، فواتير، وصيانة' : 'Includes rent, bills, maintenance'}</p>
         </div>
       </div>
 
@@ -120,7 +156,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 chart-container h-[400px]">
           <div className="flex-between mb-6">
-            <h3 className="font-bold text-lg">{isRTL ? 'إحصائيات المبيعات (14 يوم)' : 'Sales Stats (14 Days)'}</h3>
+            <h3 className="font-bold text-lg">{isRTL ? 'إحصائيات مبيعات المحل (14 يوم)' : 'Sales Stats (14 Days)'}</h3>
             <div className="flex gap-2">
                <span className="flex items-center gap-2 text-xs font-bold"><span className="w-3 h-3 rounded-full bg-orange-500" /> {t('total')}</span>
             </div>
@@ -187,7 +223,6 @@ export default function Dashboard() {
         <div className="table-wrapper">
           <div className="p-4 border-b border-[var(--border)] flex-between">
             <h3 className="font-bold">{t('recentSales')}</h3>
-            <button className="text-orange-500 text-xs font-bold hover:underline">{isRTL ? 'عرض الكل' : 'View All'}</button>
           </div>
           <div className="overflow-x-auto">
             <table className="data-table">
@@ -220,7 +255,6 @@ export default function Dashboard() {
         <div className="table-wrapper">
           <div className="p-4 border-b border-[var(--border)] flex-between">
             <h3 className="font-bold">{isRTL ? 'منتجات تحتاج للطلب' : 'Low Stock Products'}</h3>
-            <button className="text-orange-500 text-xs font-bold hover:underline">{isRTL ? 'عرض المخزن' : 'View Stock'}</button>
           </div>
           <div className="p-4 space-y-4">
             {stats?.lowStockItems?.map((item) => (
@@ -241,7 +275,7 @@ export default function Dashboard() {
             ))}
             {(!stats?.lowStockItems || stats.lowStockItems.length === 0) && (
               <div className="text-center py-10 text-[var(--text-muted)] text-sm">
-                {isRTL ? 'المخزن بحالة جيدة 👍' : 'Stock is healthy 👍'}
+                {isRTL ? 'المخزون بحالة جيدة 👍' : 'Stock is healthy 👍'}
               </div>
             )}
           </div>

@@ -8,6 +8,7 @@ import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import { PRODUCT_TYPES } from '../lib/exportUtils';
 
 export default function Products() {
   const { t, isRTL } = useLang();
@@ -17,10 +18,11 @@ export default function Products() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [productTypeFilter, setProductTypeFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  // Debounce search input to avoid multiple concurrent API calls during fast scanning
+  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -30,7 +32,7 @@ export default function Products() {
 
   useEffect(() => {
     fetchProducts();
-  }, [debouncedSearch, categoryFilter]);
+  }, [debouncedSearch, categoryFilter, productTypeFilter]);
 
   useEffect(() => {
     fetchCategories();
@@ -42,7 +44,12 @@ export default function Products() {
       const arabicNums = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
       const cleanSearch = debouncedSearch.trim().replace(/[٠-٩]/g, (d) => arabicNums.indexOf(d));
 
-      const res = await api.get(`/products?search=${cleanSearch}&category=${categoryFilter}`);
+      const params = new URLSearchParams();
+      if (cleanSearch) params.set('search', cleanSearch);
+      if (categoryFilter) params.set('category', categoryFilter);
+      if (productTypeFilter) params.set('product_type', productTypeFilter);
+
+      const res = await api.get(`/products?${params.toString()}`);
       setProducts(res.data.data);
     } catch (err) {
       toast.error(isRTL ? 'فشل تحميل المنتجات' : 'Failed to load products');
@@ -71,8 +78,9 @@ export default function Products() {
 
   const handleExport = () => {
     const dataToExport = products.map(p => ({
-      [isRTL ? 'اسم المنتج' : 'Product Name']: isRTL ? p.nameAr || p.name : p.name,
+      [isRTL ? 'اسم المنتج' : 'Product Name']: isRTL ? p.nameAr || p.name : p.name || p.nameAr,
       [isRTL ? 'الكود' : 'SKU']: p.sku,
+      [isRTL ? 'نوع المنتج' : 'Product Type']: isRTL ? t(p.productType) : p.productType,
       [isRTL ? 'التصنيف' : 'Category']: isRTL ? p.category?.nameAr || p.category?.name : p.category?.name,
       [isRTL ? 'السعر' : 'Price']: p.sellPrice,
       [isRTL ? 'الكمية' : 'Quantity']: p.quantity
@@ -119,6 +127,18 @@ export default function Products() {
         <div>
           <select 
             className="form-input"
+            value={productTypeFilter}
+            onChange={(e) => setProductTypeFilter(e.target.value)}
+          >
+            <option value="">{isRTL ? 'كل أنواع المنتجات' : 'All Product Types'}</option>
+            {PRODUCT_TYPES.map(type => (
+              <option key={type.value} value={type.value}>{isRTL ? type.labelAr : type.labelEn}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <select 
+            className="form-input"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
@@ -127,11 +147,6 @@ export default function Products() {
               <option key={c._id} value={c._id}>{isRTL ? c.nameAr || c.name : c.name}</option>
             ))}
           </select>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchProducts} className="btn btn-secondary flex-1">
-            <RefreshCw size={18} className={loading ? 'loading-spin' : ''} />
-          </button>
         </div>
       </div>
 
@@ -142,6 +157,7 @@ export default function Products() {
               <tr>
                 <th>{t('productName')}</th>
                 <th>{t('sku')}</th>
+                <th>{t('productType')}</th>
                 <th>{t('category')}</th>
                 <th>{t('price')}</th>
                 <th>{t('quantity')}</th>
@@ -165,10 +181,15 @@ export default function Products() {
               ) : products.map((p) => (
                 <tr key={p._id}>
                   <td>
-                    <div className="font-bold">{isRTL ? p.nameAr || p.name : p.name}</div>
+                    <div className="font-bold">{isRTL ? p.nameAr || p.name : p.name || p.nameAr || '-'}</div>
                     <div className="text-xs text-[var(--text-muted)]">{p.motoType}</div>
                   </td>
                   <td className="font-mono text-xs">{p.sku}</td>
+                  <td>
+                    <span className="badge badge-warning text-xs">
+                      {isRTL ? t(p.productType) : p.productType}
+                    </span>
+                  </td>
                   <td>
                     <span className="badge badge-info" style={{ backgroundColor: `${p.category?.color}20`, color: p.category?.color, borderColor: `${p.category?.color}40` }}>
                       {isRTL ? p.category?.nameAr || p.category?.name : p.category?.name}
@@ -224,6 +245,7 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
     quantity: product?.quantity || 0,
     minQuantity: product?.minQuantity || 5,
     unit: product?.unit || 'piece',
+    productType: product?.productType || 'spare_parts',
     description: product?.description || '',
   });
 
@@ -231,7 +253,6 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
     e.preventDefault();
     setLoading(true);
 
-    // Build a clean JSON object — omit empty strings to avoid validation errors
     const payload = {};
     Object.keys(formData).forEach(key => {
       const val = formData[key];
@@ -266,18 +287,26 @@ function ProductModal({ product, categories, onClose, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="modal-body grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-group">
-              <label className="form-label">Name (EN) *</label>
-              <input type="text" className="form-input" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}/>
+              <label className="form-label">{isRTL ? 'الاسم بالإنجليزية (اختياري)' : 'Name (EN) (Optional)'}</label>
+              <input type="text" className="form-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}/>
             </div>
             <div className="form-group">
-              <label className="form-label">الاسم (AR)</label>
+              <label className="form-label">{isRTL ? 'الاسم بالعربية (اختياري)' : 'Name (AR) (Optional)'}</label>
               <input type="text" className="form-input" value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{isRTL ? 'نوع المنتج' : 'Product Type'} *</label>
+              <select className="form-input" required value={formData.productType} onChange={e => setFormData({...formData, productType: e.target.value})}>
+                {PRODUCT_TYPES.map(type => (
+                  <option key={type.value} value={type.value}>{isRTL ? type.labelAr : type.labelEn}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">{t('sku')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري، يتولد تلقائياً' : 'optional, auto-generated'})</span></label>
               <input type="text" className="form-input" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})}/>
             </div>
-            <div className="form-group">
+            <div className="form-group col-span-1 md:col-span-2">
               <label className="form-label flex justify-between items-center w-full">
                 <span>{t('barcode')} <span className="text-[var(--text-muted)] text-[10px]">({isRTL ? 'اختياري' : 'optional'})</span></span>
                 <button 

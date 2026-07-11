@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Warehouse, ArrowUpRight, ArrowDownLeft, AlertTriangle, History, Search, 
   RefreshCw, Package, PlusCircle, Barcode as BarcodeIcon, Settings, 
-  ChevronRight, Plus, ArrowUpCircle, Printer, Grid, ShoppingCart, Tag, Info, User
+  ChevronRight, Plus, ArrowUpCircle, Printer, Grid, ShoppingCart, Tag, Info, User,
+  FileText, Download, TrendingDown, Hourglass
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import Barcode from 'react-barcode';
+import { exportToPDF, exportToExcel, printTable, formatCurrency } from '../lib/exportUtils';
 
 export default function Inventory() {
   const { t, isRTL } = useLang();
@@ -21,8 +23,9 @@ export default function Inventory() {
   const [suppliers, setSuppliers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [lowStock, setLowStock] = useState([]);
+  const [stagnant, setStagnant] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLowStock, setFilterLowStock] = useState(false);
+  const [filterType, setFilterType] = useState('all'); // all | low | out | stagnant
 
   // Tab 3: Top-up stock state
   const [topupProductId, setTopupProductId] = useState('');
@@ -32,8 +35,8 @@ export default function Inventory() {
 
   // Tab 4: Add new product state
   const [newProduct, setNewProduct] = useState({
-    name: '', nameAr: '', category: '', buyPrice: 0, sellPrice: 0,
-    quantity: 0, minQuantity: 5, sku: '', barcode: '', motoType: '', unit: 'piece'
+    name: '', nameAr: '', category: '', buyPrice: '', sellPrice: '',
+    quantity: 0, minQuantity: 5, sku: '', barcode: '', motoType: '', unit: 'piece', productType: 'spare_parts'
   });
 
   // Tab 5: Barcode print state
@@ -41,10 +44,53 @@ export default function Inventory() {
   const [printQuantity, setPrintQuantity] = useState(6);
   const printComponentRef = useRef();
 
+  const fetchInventoryStats = useCallback(async () => {
+    try {
+      const res = await api.get('/products/inventory-stats');
+      if (res.data?.success) {
+        setStagnant(res.data.data.stagnantProducts || []);
+      }
+    } catch {}
+  }, []);
+
+  const fetchInventoryBoard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const q = searchQuery ? `&search=${searchQuery}` : '';
+      let low = '';
+      if (filterType === 'low') low = '&low_stock=true';
+      
+      const [productsRes, lowStockRes] = await Promise.all([
+        api.get(`/products?limit=10000${q}${low}`),
+        api.get('/products?low_stock=true')
+      ]);
+      
+      let filteredProds = productsRes.data.data || [];
+      if (filterType === 'out') {
+        filteredProds = filteredProds.filter(p => p.quantity <= 0);
+      } else if (filterType === 'stagnant') {
+        // match against stagnant products from stats endpoint
+        const stagnantIds = new Set(stagnant.map(s => s._id));
+        filteredProds = filteredProds.filter(p => stagnantIds.has(p._id));
+      }
+
+      setProducts(filteredProds);
+      setLowStock(lowStockRes.data.data || []);
+    } catch {
+      toast.error(isRTL ? 'فشل تحميل المنتجات' : 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, filterType, stagnant, isRTL]);
+
+  useEffect(() => {
+    fetchInventoryStats();
+  }, [fetchInventoryStats]);
+
   useEffect(() => {
     fetchInventoryBoard();
     fetchCategoriesAndSuppliers();
-  }, [searchQuery, filterLowStock]);
+  }, [fetchInventoryBoard]);
 
   useEffect(() => {
     if (activeTab === 'logs') {
@@ -52,29 +98,11 @@ export default function Inventory() {
     }
   }, [activeTab]);
 
-  const fetchInventoryBoard = async () => {
-    setLoading(true);
-    try {
-      const q = searchQuery ? `&search=${searchQuery}` : '';
-      const low = filterLowStock ? '&low_stock=true' : '';
-      const [productsRes, lowStockRes] = await Promise.all([
-        api.get(`/products?limit=10000${q}${low}`),
-        api.get('/products?low_stock=true')
-      ]);
-      setProducts(productsRes.data.data || []);
-      setLowStock(lowStockRes.data.data || []);
-    } catch {
-      toast.error(isRTL ? 'فشل تحميل المنتجات' : 'Failed to load products');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchCategoriesAndSuppliers = async () => {
     try {
       const [catRes, supRes] = await Promise.all([
         api.get('/products/categories'),
-        api.get('/contacts/suppliers')
+        api.get('/contacts?type=supplier')
       ]);
       setCategories(catRes.data.data || []);
       setSuppliers(supRes.data.data || []);
@@ -93,7 +121,6 @@ export default function Inventory() {
     }
   };
 
-  // Quick SKU/Barcode Generator helpers (10-digit high-readability numeric barcodes)
   const generateSKUAndBarcode = () => {
     const stamp = Date.now().toString().slice(-7);
     const rand = Math.floor(100 + Math.random() * 900).toString();
@@ -103,10 +130,9 @@ export default function Inventory() {
       sku: `MOTO-${stamp}-${rand}`,
       barcode: cleanBarcode
     }));
-    toast.success(isRTL ? 'تم توليد باركود رقمي نظيف (10 أرقام) للتوافق التام مع قارئ الباركود!' : 'Clean numeric 10-digit barcode generated for perfect scanner compatibility!');
+    toast.success(isRTL ? 'تم توليد باركود رقمي نظيف للتوافق مع قارئ الباركود!' : 'Clean barcode generated!');
   };
 
-  // Submit Tab 3: Top-up stock
   const handleTopupSubmit = async (e) => {
     e.preventDefault();
     if (!topupProductId) {
@@ -116,11 +142,9 @@ export default function Inventory() {
     setLoading(true);
     try {
       const prod = products.find(p => p._id === topupProductId);
-      const updatedQty = prod.quantity + Number(topupQty);
+      const updatedQty = (prod?.quantity || 0) + Number(topupQty);
       
-      const payload = {
-        quantity: updatedQty
-      };
+      const payload = { quantity: updatedQty };
       if (topupBuyPrice) payload.buyPrice = Number(topupBuyPrice);
       if (topupSellPrice) payload.sellPrice = Number(topupSellPrice);
 
@@ -140,7 +164,6 @@ export default function Inventory() {
     }
   };
 
-  // Submit Tab 4: Add new product
   const handleAddProductSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -148,8 +171,8 @@ export default function Inventory() {
       await api.post('/products', newProduct);
       toast.success(isRTL ? 'تم إدراج الصنف الجديد وتأسيس مخزونه بنجاح!' : 'Product added successfully');
       setNewProduct({
-        name: '', nameAr: '', category: '', buyPrice: 0, sellPrice: 0,
-        quantity: 0, minQuantity: 5, sku: '', barcode: '', motoType: '', unit: 'piece'
+        name: '', nameAr: '', category: '', buyPrice: '', sellPrice: '',
+        quantity: 0, minQuantity: 5, sku: '', barcode: '', motoType: '', unit: 'piece', productType: 'spare_parts'
       });
       fetchInventoryBoard();
       setActiveTab('board');
@@ -160,7 +183,6 @@ export default function Inventory() {
     }
   };
 
-  // Submit Tab 5: Print Barcodes
   const handlePrintBarcodes = () => {
     const printContent = printComponentRef.current;
     if (!printContent) return;
@@ -219,64 +241,92 @@ export default function Inventory() {
     doc.close();
   };
 
+  // Exports
+  const columns = [
+    { key: 'name', header: 'الاسم' },
+    { key: 'sku', header: 'SKU' },
+    { key: 'barcode', header: 'الباركود' },
+    { key: 'buyPrice', header: 'سعر الشراء', format: v => `${v.toLocaleString('ar-EG')} ج` },
+    { key: 'sellPrice', header: 'سعر البيع', format: v => `${v.toLocaleString('ar-EG')} ج` },
+    { key: 'quantity', header: 'الكمية' },
+    { key: 'categoryName', header: 'التصنيف' },
+    { key: 'motoType', header: 'نوع الموتسيكل' },
+  ];
+
+  const handleExportPDF = () => {
+    const rows = products.map(p => ({
+      ...p,
+      name: p.nameAr || p.name,
+      categoryName: p.category?.name || '-'
+    }));
+    exportToPDF({ title: 'تقرير جرد المخازن', columns, rows, filename: 'inventory-report' });
+  };
+
+  const handleExportExcel = () => {
+    const rows = products.map(p => ({
+      ...p,
+      name: p.nameAr || p.name,
+      categoryName: p.category?.name || '-'
+    }));
+    exportToExcel({ title: 'تقرير جرد المخازن', columns, rows, filename: 'inventory-report' });
+  };
+
+  const handlePrint = () => {
+    const rows = products.map(p => ({
+      ...p,
+      name: p.nameAr || p.name,
+      categoryName: p.category?.name || '-'
+    }));
+    printTable({ title: 'تقرير جرد المخازن', columns, rows });
+  };
+
   const selectedPrintProduct = products.find(p => p._id === printProductId);
 
   return (
     <div className="space-y-6 fade-in">
       
       {/* Header section */}
-      <div className="flex-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title">{isRTL ? 'المخزن وإدارة السلع' : 'Inventory & Products'}</h1>
           <p className="page-subtitle">{isRTL ? 'مركز التحكم في الأصناف ونواقص المخازن وحركة البضائع والباركود' : 'Unified control center for products, stock limits, logs, and barcodes'}</p>
         </div>
-        <button onClick={fetchInventoryBoard} className="btn btn-secondary gap-2">
-          <RefreshCw size={18} className={loading ? 'loading-spin' : ''} />
-          {isRTL ? 'تحديث البيانات' : 'Refresh Board'}
-        </button>
+        <div className="flex items-center gap-2">
+          {activeTab === 'board' && (
+            <>
+              <button onClick={handleExportPDF} className="btn btn-secondary gap-1.5 text-xs"><FileText size={15} /> PDF</button>
+              <button onClick={handleExportExcel} className="btn btn-secondary gap-1.5 text-xs"><Download size={15} /> Excel</button>
+              <button onClick={handlePrint} className="btn btn-secondary gap-1.5 text-xs"><Printer size={15} /> طباعة</button>
+            </>
+          )}
+          <button onClick={fetchInventoryBoard} className="btn btn-primary gap-2">
+            <RefreshCw size={18} className={loading ? 'loading-spin' : ''} />
+            {isRTL ? 'تحديث' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs list bar */}
       <div className="flex flex-wrap border-b border-[var(--border)] gap-2 pb-px shrink-0">
-        <button 
-          onClick={() => setActiveTab('board')}
-          className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === 'board' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
-        >
-          <Grid size={16} />
-          {isRTL ? 'لوحة المخزن الحالية' : 'Stock Overview'}
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('logs')}
-          className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
-        >
-          <History size={16} />
-          {isRTL ? 'حركة المنتجات (البيع والشراء)' : 'Stock Logs'}
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('topup')}
-          className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === 'topup' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
-        >
-          <ArrowUpCircle size={16} />
-          {isRTL ? 'زيادة كمية منتج موجود' : 'Quick Stock In'}
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('new')}
-          className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === 'new' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
-        >
-          <PlusCircle size={16} />
-          {isRTL ? 'إضافة منتج جديد' : 'New Product'}
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('barcodes')}
-          className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === 'barcodes' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
-        >
-          <Printer size={16} />
-          {isRTL ? 'طباعة ملصقات الباركود' : 'Barcode Labels'}
-        </button>
+        {[
+          { id: 'board', label: isRTL ? 'لوحة المخزن الحالية' : 'Stock Overview', icon: Grid },
+          { id: 'logs', label: isRTL ? 'حركة المنتجات (البيع والشراء)' : 'Stock Logs', icon: History },
+          { id: 'topup', label: isRTL ? 'زيادة كمية منتج موجود' : 'Quick Stock In', icon: ArrowUpCircle },
+          { id: 'new', label: isRTL ? 'إضافة منتج جديد' : 'New Product', icon: PlusCircle },
+          { id: 'barcodes', label: isRTL ? 'طباعة ملصقات الباركود' : 'Barcode Labels', icon: Printer }
+        ].map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`h-12 px-5 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-[var(--text-secondary)] hover:text-white'}`}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tabs Content */}
@@ -298,14 +348,22 @@ export default function Inventory() {
                   />
                 </div>
 
-                <div className="flex gap-3 w-full md:w-auto shrink-0 justify-end">
-                  <button 
-                    onClick={() => setFilterLowStock(!filterLowStock)}
-                    className={`btn h-11 px-4 gap-2 text-xs font-bold border rounded-2xl ${filterLowStock ? 'bg-red-500/15 border-red-500/40 text-red-500' : 'btn-secondary'}`}
-                  >
-                    <AlertTriangle size={16} />
-                    {isRTL ? `النواقص فقط (${lowStock.length})` : `Low Stock (${lowStock.length})`}
-                  </button>
+                <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0 justify-end">
+                  {[
+                    { id: 'all', label: isRTL ? 'كل المنتجات' : 'All Products', icon: Grid },
+                    { id: 'low', label: isRTL ? `نواقص (${lowStock.length})` : `Low Stock (${lowStock.length})`, icon: AlertTriangle, color: 'text-red-400 bg-red-500/10' },
+                    { id: 'out', label: isRTL ? 'نفد المخزون' : 'Out of Stock', icon: TrendingDown, color: 'text-rose-400 bg-rose-500/10' },
+                    { id: 'stagnant', label: isRTL ? `منتجات راكدة (${stagnant.length})` : `Stagnant (${stagnant.length})`, icon: Hourglass, color: 'text-purple-400 bg-purple-500/10' }
+                  ].map(filter => (
+                    <button 
+                      key={filter.id}
+                      onClick={() => setFilterType(filter.id)}
+                      className={`btn h-11 px-4 gap-2 text-xs font-bold border rounded-2xl transition-all ${filterType === filter.id ? 'bg-orange-500 border-orange-500 text-white' : 'btn-secondary'}`}
+                    >
+                      <filter.icon size={15} />
+                      {filter.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -573,7 +631,22 @@ export default function Inventory() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="form-group">
+                      <label className="form-label">{isRTL ? 'نوع المنتج' : 'Product Type'}</label>
+                      <select 
+                        className="form-input h-12" required value={newProduct.productType}
+                        onChange={e => setNewProduct({...newProduct, productType: e.target.value})}
+                      >
+                        <option value="spare_parts">{isRTL ? 'قطع غيار' : 'Spare Parts'}</option>
+                        <option value="oils">{isRTL ? 'زيوت' : 'Oils'}</option>
+                        <option value="batteries">{isRTL ? 'بطاريات' : 'Batteries'}</option>
+                        <option value="tires">{isRTL ? 'إطارات' : 'Tires'}</option>
+                        <option value="accessories">{isRTL ? 'إكسسوارات' : 'Accessories'}</option>
+                        <option value="extras">{isRTL ? 'كماليات' : 'Extras'}</option>
+                        <option value="other">{isRTL ? 'أخرى' : 'Other'}</option>
+                      </select>
+                    </div>
                     <div className="form-group">
                       <label className="form-label">{isRTL ? 'تصنيف الصنف' : 'Category'}</label>
                       <select 
@@ -603,14 +676,14 @@ export default function Inventory() {
                       <label className="form-label text-blue-400 font-bold">{isRTL ? 'سعر الشراء' : 'Buy Price'}</label>
                       <input 
                         type="number" step="any" className="form-input h-12 text-lg font-black text-center text-blue-500" required
-                        value={newProduct.buyPrice} onChange={e => setNewProduct({...newProduct, buyPrice: Number(e.target.value)})}
+                        value={newProduct.buyPrice} onChange={e => setNewProduct({...newProduct, buyPrice: e.target.value})}
                       />
                     </div>
                     <div className="form-group">
                       <label className="form-label text-green-400 font-bold">{isRTL ? 'سعر البيع' : 'Sell Price'}</label>
                       <input 
                         type="number" step="any" className="form-input h-12 text-lg font-black text-center text-green-500" required
-                        value={newProduct.sellPrice} onChange={e => setNewProduct({...newProduct, sellPrice: Number(e.target.value)})}
+                        value={newProduct.sellPrice} onChange={e => setNewProduct({...newProduct, sellPrice: e.target.value})}
                       />
                     </div>
                     <div className="form-group">
@@ -644,7 +717,7 @@ export default function Inventory() {
             </motion.div>
           )}
 
-          {/* TAB 5: BARCODE LABELS PRINT DIRECTLY */}
+          {/* TAB 5: BARCODE LABELS PRINT */}
           {activeTab === 'barcodes' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col md:flex-row gap-6">
               
@@ -696,7 +769,7 @@ export default function Inventory() {
               <div className="flex-1 bg-white p-6 rounded-[2.5rem] min-h-[400px] border border-[var(--border)] shadow-inner overflow-auto">
                 <div className="mb-4 text-xs font-bold text-slate-400 pb-2 border-b border-slate-100 flex items-center gap-1.5">
                   <Info size={14} className="text-slate-400" />
-                  <span>{isRTL ? 'معاينة ملصقات الباركود الورقية قبل الإرسال للطابعة:' : 'Live physical barcode label sheets preview:'}</span>
+                  <span>{isRTL ? 'معاينة ملصقات الباركود الورقية قبل الإرسال للطابعة:' : 'Live preview:'}</span>
                 </div>
 
                 <div 
