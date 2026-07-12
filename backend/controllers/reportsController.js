@@ -104,6 +104,7 @@ exports.getAdvancedReport = async (req, res) => {
               status: 1,
               customerName: { $ifNull: ['$customerObj.name', 'عميل نقدي'] },
               customerPhone: { $ifNull: ['$customerObj.phone', '-'] },
+              customerAddress: { $ifNull: ['$customerObj.address', '-'] },
               userName: { $ifNull: ['$userObj.name', '-'] },
               productName: { $ifNull: ['$items.nameAr', '$items.name'] },
               productType: '$items.productType',

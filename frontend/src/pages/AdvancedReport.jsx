@@ -17,6 +17,7 @@ const TOKEN = () => localStorage.getItem('moto_token');
 const COLORS = ['#2563EB','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'];
 
 const PERIODS = [
+  { l: 'الكل', v: 'all' },
   { l: 'اليوم', v: 'today' },
   { l: 'الأسبوع', v: 'week' },
   { l: 'الشهر', v: 'month' },
@@ -33,7 +34,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
   const [error, setError] = useState(null);
   
   // Filters
-  const [period, setPeriod] = useState('month');
+  const [period, setPeriod] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [search, setSearch] = useState('');
@@ -49,11 +50,9 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
     }
   };
 
-  // Initially set month
+  // Initially load all data (no date filter) to show full history
   useEffect(() => {
-    const { from, to } = getDateRange('month');
-    setFromDate(from);
-    setToDate(to);
+    // do nothing: default is 'all' with empty dates
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -288,7 +287,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                     <tr>
                       <th>#</th>
                       <th>{isRTL ? 'الفاتورة' : 'Invoice'}</th>
-                      <th>{isRTL ? 'التاريخ' : 'Date'}</th>
+                      <th>{isRTL ? 'التاريخ والوقت' : 'Date & Time'}</th>
                       <th>{isRTL ? 'اسم المنتج' : 'Product'}</th>
                       <th>{isRTL ? 'الباركود/الكود' : 'Barcode/SKU'}</th>
                       <th>{isRTL ? 'الماركة/الموديل' : 'Brand/Model'}</th>
@@ -299,6 +298,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                       <th>{isRTL ? 'الربح' : 'Profit'}</th>
                       <th>{isRTL ? 'العميل' : 'Customer'}</th>
                       <th>{isRTL ? 'الموظف' : 'Employee'}</th>
+                      <th>{isRTL ? 'الدفع/الحالة' : 'Payment/Status'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -306,7 +306,12 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                       <tr key={i}>
                         <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                         <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)' }}>{r.invoiceNumber}</td>
-                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatDate(r.createdAt)}</td>
+                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          <div>{formatDate(r.createdAt)}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            {new Date(r.createdAt).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
                         <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                           {r.productName}
                           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t(r.productType)} {r.category ? `- ${r.category}` : ''}</div>
@@ -326,9 +331,16 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                         <td style={{ fontWeight: 700, color: '#10B981' }}>{formatCurrency(r.totalProfit)}</td>
                         <td style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
                           {r.customerName}
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{r.customerPhone !== '-' ? r.customerPhone : ''}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            {r.customerPhone !== '-' ? r.customerPhone : ''}
+                            {r.customerAddress && r.customerAddress !== '-' ? ` | ${r.customerAddress}` : ''}
+                          </div>
                         </td>
                         <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.userName}</td>
+                        <td style={{ fontSize: '11px' }}>
+                          <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{t(r.paymentMethod) || r.paymentMethod}</div>
+                          <div style={{ color: r.status === 'completed' ? '#10B981' : 'var(--text-muted)' }}>{t(r.status) || r.status}</div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -233,3 +233,62 @@ exports.cancelSale = async (req, res) => {
     res.json({ success: true, message: 'تم إلغاء الفاتورة وإرجاع الكميات للمخزن' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
+
+// ===================== MIGRATE OLD SALES =====================
+exports.migrateOldSales = async (req, res) => {
+  try {
+    const sales = await Sale.find({});
+    let migratedCount = 0;
+
+    for (const sale of sales) {
+      let needsUpdate = false;
+      
+      for (const item of sale.items) {
+        // If old data missing crucial snapshot fields like productType or name
+        if (!item.productType || !item.name) {
+          needsUpdate = true;
+          
+          if (item.product) {
+            const product = await Product.findById(item.product);
+            if (product) {
+              item.name = product.name || product.brand || product.sku || 'منتج غير معروف';
+              item.nameAr = product.nameAr || product.name || item.name;
+              item.productType = product.productType || 'spare_parts';
+              item.category = product.category || '';
+              item.brand = product.brand || '';
+              item.model = product.model || '';
+              item.barcode = product.barcode || '';
+              item.sku = product.sku || '';
+              // Also ensure buyPrice is stored for accurate historical profit
+              if (!item.buyPrice) item.buyPrice = product.buyPrice || 0;
+            } else {
+              // Product was deleted, fallback to minimal defaults
+              item.name = 'منتج محذوف';
+              item.nameAr = 'منتج محذوف';
+              item.productType = 'other';
+              if (!item.buyPrice) item.buyPrice = 0;
+            }
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        // Recalculate totalCost just in case it was missing
+        const newTotalCost = sale.items.reduce((acc, it) => acc + ((it.buyPrice || 0) * (it.quantity || 1)), 0);
+        sale.totalCost = newTotalCost;
+        await sale.save();
+        migratedCount++;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'تم ترحيل وتحديث بيانات المبيعات القديمة بنجاح', 
+      migratedCount,
+      totalSales: sales.length
+    });
+  } catch (err) {
+    console.error('Migration Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, Store, Globe, Bell, 
   Shield, Database, Languages, Palette, Save, Upload,
-  QrCode, Volume2, Play, CheckCircle
+  QrCode, Volume2, Play, CheckCircle, RefreshCw, ArrowUpCircle, CheckSquare
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import api from '../lib/api';
@@ -18,6 +18,8 @@ export default function Settings() {
   });
   const [loading, setLoading] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
+  const [migrateLoading, setMigrateLoading] = useState(false);
+  const [migrateResult, setMigrateResult] = useState(null);
 
   // Barcode & Hardware Wedging states
   const [successSound, setSuccessSound] = useState(() => localStorage.getItem('barcode_sound_success') !== 'false');
@@ -127,12 +129,28 @@ export default function Settings() {
     }
   };
 
+  const handleMigrate = async () => {
+    if (!window.confirm(isRTL ? 'هل تريد ترحيل جميع بيانات المبيعات القديمة؟ سيتم تحديث البيانات الناقصة فقط بدون حذف أي سجل.' : 'Run the legacy sales data migration? Only missing data will be updated, no records deleted.')) return;
+    setMigrateLoading(true);
+    setMigrateResult(null);
+    try {
+      const res = await api.post('/sales/migrate-history');
+      setMigrateResult(res.data);
+      toast.success(isRTL ? `تم ترحيل ${res.data.migratedCount} فاتورة بنجاح!` : `Migrated ${res.data.migratedCount} invoices successfully!`);
+    } catch (err) {
+      toast.error(isRTL ? 'فشل الترحيل: ' + (err.response?.data?.message || err.message) : 'Migration failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setMigrateLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'general', label: isRTL ? 'إعدادات المتجر' : 'Shop Settings', icon: Store },
     { id: 'localization', label: isRTL ? 'اللغة' : 'Localization', icon: Languages },
     { id: 'barcode', label: isRTL ? 'إعدادات الباركود والماسح' : 'Barcode & Scanner', icon: QrCode },
     { id: 'notifications', label: isRTL ? 'التنبيهات' : 'Notifications', icon: Bell },
     { id: 'security', label: isRTL ? 'الأمان' : 'Security', icon: Shield },
+    { id: 'data', label: isRTL ? 'إدارة البيانات' : 'Data Management', icon: Database },
   ];
 
   return (
@@ -368,6 +386,68 @@ export default function Settings() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'data' && (
+              <div className="space-y-6">
+                <div className="border-b border-[var(--border)] pb-4">
+                  <h3 className="text-base font-black text-[var(--text-primary)] flex items-center gap-2">
+                    <Database className="text-orange-500" size={20} />
+                    {isRTL ? 'ترحيل بيانات المبيعات التاريخية' : 'Legacy Sales Data Migration'}
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    {isRTL
+                      ? 'يقوم هذا النظام بفحص جميع فواتير البيع القديمة وتحديث أي بيانات ناقصة فيها لتظهر في التقارير بشكل صحيح. لن يتم حذف أي بيانات.'
+                      : 'This will scan all old sales invoices and backfill any missing product type/name data so they appear correctly in all reports. No data will be deleted.'}
+                  </p>
+                </div>
+
+                <div className="bg-[var(--bg-card2)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(234,88,12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ArrowUpCircle size={24} className="text-orange-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-sm text-[var(--text-primary)]">
+                        {isRTL ? 'تحديث بيانات المبيعات القديمة' : 'Update Legacy Sales Snapshot'}
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        {isRTL
+                          ? 'يقوم بملء حقول (productType, name, brand, model) لكل فاتورة قديمة كانت تخلو من هذه البيانات. آمن تمامًا.'
+                          : 'Fills in productType, name, brand, model fields for old invoices that were missing them. Completely safe to run.'}
+                      </p>
+
+                      {migrateResult && (
+                        <div className="mt-4 p-4 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center gap-3">
+                          <CheckSquare size={20} className="text-green-400" />
+                          <div>
+                            <div className="text-sm font-bold text-green-400">
+                              {isRTL ? 'تم الترحيل بنجاح' : 'Migration Completed'}
+                            </div>
+                            <div className="text-xs text-[var(--text-muted)] mt-1">
+                              {isRTL
+                                ? `تم تحديث ${migrateResult.migratedCount} فاتورة من إجمالي ${migrateResult.totalSales} فاتورة محفوظة في النظام.`
+                                : `Updated ${migrateResult.migratedCount} invoices out of ${migrateResult.totalSales} total in the system.`}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleMigrate}
+                    disabled={migrateLoading}
+                    className="btn btn-primary w-full h-12 gap-2"
+                  >
+                    {migrateLoading
+                      ? <><RefreshCw size={18} className="animate-spin" /> {isRTL ? 'جاري الترحيل...' : 'Migrating...'}</>
+                      : <><ArrowUpCircle size={18} /> {isRTL ? 'تشغيل عملية الترحيل الآن' : 'Run Migration Now'}</>
+                    }
+                  </button>
                 </div>
               </div>
             )}
