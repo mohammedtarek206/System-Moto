@@ -611,7 +611,7 @@ export default function POS() {
             {cart.map(item => (
               <div key={item.productId} className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--bg-card2)] border border-[var(--border)] group relative">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold truncate pr-4">{isRTL ? item.nameAr || item.name : item.name || item.nameAr}</div>
+                  <div className="text-sm font-bold break-words whitespace-normal pr-4">{isRTL ? item.nameAr || item.name : item.name || item.nameAr}</div>
                   <div className="text-sm text-orange-500 font-black">{item.price} {t('currency')}</div>
                 </div>
                 <div className="flex items-center bg-[var(--bg-dark)] rounded-xl border border-[var(--border)] overflow-hidden h-10 shrink-0">

@@ -684,7 +684,7 @@ function AddPurchaseModal({ suppliers, products, onClose, onSuccess }) {
                                 <button
                                   key={p._id} type="button"
                                   onClick={() => handleProductSelect(index, p)}
-                                  className="w-full text-right p-2 rounded-lg hover:bg-white/5 text-xs text-white truncate font-bold"
+                                  className="w-full text-right p-2 rounded-lg hover:bg-white/5 text-xs text-white break-words whitespace-normal font-bold"
                                 >
                                   {p.nameAr || p.name}
                                 </button>

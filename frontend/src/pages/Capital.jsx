@@ -310,7 +310,7 @@ export default function Capital() {
                       className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="px-3 py-3 text-[var(--text-muted)] text-sm">{new Date(exp.date).toLocaleDateString('ar-EG')}</td>
                       <td className="px-3 py-3"><span className="badge badge-warning text-xs">{exp.categoryAr||exp.category}</span></td>
-                      <td className="px-3 py-3 text-[var(--text-secondary)] text-sm max-w-[200px] truncate">{exp.description||'-'}</td>
+                      <td className="px-3 py-3 text-[var(--text-secondary)] text-sm max-w-[200px] break-words whitespace-normal">{exp.description||'-'}</td>
                       <td className="px-3 py-3 font-black text-red-400">{(exp.amount||0).toLocaleString('ar-EG')} ج</td>
                       <td className="px-3 py-3 text-[var(--text-muted)] text-sm">{exp.responsible||'-'}</td>
                       <td className="px-3 py-3">

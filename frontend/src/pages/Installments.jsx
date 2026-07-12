@@ -1389,7 +1389,7 @@ export default function Installments() {
                   <div className="flex flex-col gap-3">
                     <label className="flex items-center justify-center gap-2 bg-slate-950 border border-slate-850 hover:bg-slate-900 border-dashed p-4 rounded-xl cursor-pointer w-full text-slate-400 transition-colors shadow-inner">
                       <Upload className="w-5 h-5 text-red-500" />
-                      <span className="text-xs truncate">
+                      <span className="text-xs break-words whitespace-normal">
                         {customerFiles.nationalIdImage ? customerFiles.nationalIdImage.name : 'اسحب أو اختر صورة البطاقة...'}
                       </span>
                       <input
@@ -1412,7 +1412,7 @@ export default function Installments() {
                   <div className="flex flex-col gap-3">
                     <label className="flex items-center justify-center gap-2 bg-slate-950 border border-slate-850 hover:bg-slate-900 border-dashed p-4 rounded-xl cursor-pointer w-full text-slate-400 transition-colors shadow-inner">
                       <Upload className="w-5 h-5 text-red-500" />
-                      <span className="text-xs truncate">
+                      <span className="text-xs break-words whitespace-normal">
                         {customerFiles.contractImage ? customerFiles.contractImage.name : 'اسحب أو اختر صورة الوصل الموقّع...'}
                       </span>
                       <input

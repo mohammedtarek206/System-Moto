@@ -484,7 +484,7 @@ export default function BarcodePrint() {
               className={`p-3 rounded-xl cursor-pointer transition-all border flex justify-between items-center ${selectedProduct?._id === p._id ? 'border-orange-500 bg-orange-500/10' : 'border-transparent hover:bg-[var(--bg-card)]'}`}
             >
               <div>
-                <div className="font-bold text-sm text-slate-900 dark:text-white truncate max-w-[200px]">{isRTL ? p.nameAr || p.name : p.name}</div>
+                <div className="font-bold text-sm text-slate-900 dark:text-white break-words whitespace-normal">{isRTL ? p.nameAr || p.name : p.name}</div>
                 <div className="text-xs text-[var(--text-muted)] font-mono mt-0.5 flex items-center gap-1.5">
                   <span>Code: {p.sku.replace('MOTO-', '')}</span>
                   <span className="text-slate-300 dark:text-slate-700">|</span>

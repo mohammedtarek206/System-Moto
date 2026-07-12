@@ -779,7 +779,7 @@ export default function Inventory() {
                   {selectedPrintProduct ? (
                     [...Array(printQuantity)].map((_, i) => (
                       <div key={i} className="barcode-label border border-dashed border-slate-300 p-3 bg-white text-black break-inside-avoid flex flex-col items-center justify-center min-h-[145px]">
-                        <div className="text-[11px] font-extrabold truncate leading-tight w-full mb-0.5 text-slate-900">
+                        <div className="text-[11px] font-extrabold break-words whitespace-normal leading-tight w-full mb-0.5 text-slate-900">
                           {selectedPrintProduct.nameAr || selectedPrintProduct.name}
                         </div>
                         <div className="text-xs font-black text-slate-900 mb-1.5">
