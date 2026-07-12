@@ -2,327 +2,218 @@ const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const Customer = require('../models/Customer');
 
-// ===================== OILS REPORT =====================
-exports.getOilsReport = async (req, res) => {
+exports.getAdvancedReport = async (req, res) => {
   try {
-    const { from_date, to_date, period = 'month' } = req.query;
-    let dateQuery = { status: { $ne: 'cancelled' } };
+    const { 
+      type, // 'oils', 'spare_parts', 'motorcycles', 'scooters', 'batteries', 'tires', 'accessories', 'extras', 'all'
+      from_date, to_date, 
+      search, 
+      invoice_number, 
+      category, brand, 
+      customer_name, user_name, payment_method,
+      min_price, max_price, min_profit, max_profit
+    } = req.query;
+
+    let matchStage = { status: { $ne: 'cancelled' } };
+
     if (from_date || to_date) {
-      dateQuery.createdAt = {};
-      if (from_date) dateQuery.createdAt.$gte = new Date(from_date);
-      if (to_date) { 
-        const end = new Date(to_date); end.setHours(23,59,59,999);
-        dateQuery.createdAt.$lte = end; 
+      matchStage.createdAt = {};
+      if (from_date) matchStage.createdAt.$gte = new Date(from_date);
+      if (to_date) {
+        const end = new Date(to_date);
+        end.setHours(23, 59, 59, 999);
+        matchStage.createdAt.$lte = end;
       }
     }
 
-    const [oilSales, oilStock] = await Promise.all([
-      // Oil sales aggregation per product
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': 'oils' } },
-        {
-          $group: {
-            _id: '$items.product',
-            productName: { $first: '$items.name' },
-            productNameAr: { $first: '$items.nameAr' },
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
-            totalCost: { $sum: { $multiply: ['$items.buyPrice', '$items.quantity'] } },
-            lastSaleDate: { $max: '$createdAt' },
-            avgSellPrice: { $avg: '$items.sellPrice' },
-            customerIds: { $addToSet: '$customer' },
-          }
-        },
-        {
-          $lookup: {
-            from: 'products',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'productInfo'
-          }
-        },
-        {
-          $lookup: {
-            from: 'customers',
-            localField: 'customerIds',
-            foreignField: '_id',
-            as: 'customers'
-          }
-        },
-        { $sort: { totalRevenue: -1 } }
-      ]),
+    const pipeline = [
+      { $match: matchStage },
+      { $lookup: { from: 'customers', localField: 'customer', foreignField: '_id', as: 'customerObj' } },
+      { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'userObj' } },
+      { $unwind: { path: '$customerObj', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$userObj', preserveNullAndEmptyArrays: true } },
+      { $unwind: '$items' }
+    ];
 
-      // Oil products in stock
-      Product.find({ productType: 'oils', isActive: true })
-        .select('name nameAr quantity barcode sku')
-        .lean()
-    ]);
-
-    // Map stock data
-    const stockMap = {};
-    oilStock.forEach(p => { stockMap[String(p._id)] = p; });
-
-    const report = oilSales.map(item => {
-      const stock = stockMap[String(item._id)];
-      const profit = item.totalRevenue - item.totalCost;
-      return {
-        id: item._id,
-        name: item.productInfo[0]?.name || item.productName,
-        nameAr: item.productInfo[0]?.nameAr || item.productNameAr,
-        totalSold: item.totalSold,
-        totalRevenue: item.totalRevenue,
-        totalProfit: profit,
-        avgSellPrice: Math.round(item.avgSellPrice * 100) / 100,
-        currentStock: stock?.quantity || 0,
-        lastSaleDate: item.lastSaleDate,
-        topCustomer: item.customers.length > 0 ? item.customers[0]?.name : null,
-        customerCount: item.customerIds.length,
-      };
-    });
-
-    res.json({ success: true, data: report });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-};
-
-// ===================== SPARE PARTS REPORT =====================
-exports.getSparePartsReport = async (req, res) => {
-  try {
-    const { from_date, to_date, search, sort_by = 'revenue' } = req.query;
-    let dateQuery = { status: { $ne: 'cancelled' } };
-    if (from_date || to_date) {
-      dateQuery.createdAt = {};
-      if (from_date) dateQuery.createdAt.$gte = new Date(from_date);
-      if (to_date) { 
-        const end = new Date(to_date); end.setHours(23,59,59,999);
-        dateQuery.createdAt.$lte = end; 
-      }
+    let itemMatch = {};
+    if (type && type !== 'all') {
+      itemMatch['items.productType'] = type;
     }
-
-    const sortField = sort_by === 'quantity' ? 'totalSold' : 
-                      sort_by === 'profit' ? 'totalProfit' : 'totalRevenue';
-
-    const [partsSales, partsStock] = await Promise.all([
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': { $in: ['spare_parts', 'batteries', 'tires', 'accessories', 'extras'] } } },
-        {
-          $group: {
-            _id: '$items.product',
-            productName: { $first: '$items.name' },
-            productNameAr: { $first: '$items.nameAr' },
-            saleCount: { $sum: 1 },
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
-            totalCost: { $sum: { $multiply: ['$items.buyPrice', '$items.quantity'] } },
-            lastSaleDate: { $max: '$createdAt' },
-            avgSellPrice: { $avg: '$items.sellPrice' },
-            customerIds: { $addToSet: '$customer' },
-          }
-        },
-        {
-          $addFields: { totalProfit: { $subtract: ['$totalRevenue', '$totalCost'] } }
-        },
-        { $sort: { [sortField]: -1 } }
-      ]),
-      Product.find({ 
-        productType: { $in: ['spare_parts', 'batteries', 'tires', 'accessories', 'extras'] }, 
-        isActive: true 
-      }).select('name nameAr quantity barcode sku').lean()
-    ]);
-
-    const stockMap = {};
-    partsStock.forEach(p => { stockMap[String(p._id)] = p; });
-
-    let report = partsSales.map(item => {
-      const stock = stockMap[String(item._id)];
-      return {
-        id: item._id,
-        name: item.productName,
-        nameAr: item.productNameAr,
-        saleCount: item.saleCount,
-        totalSold: item.totalSold,
-        totalRevenue: item.totalRevenue,
-        totalProfit: item.totalProfit,
-        avgSellPrice: Math.round(item.avgSellPrice * 100) / 100,
-        currentStock: stock?.quantity || 0,
-        lastSaleDate: item.lastSaleDate,
-        customerCount: item.customerIds.length,
-      };
-    });
 
     if (search) {
-      const s = search.toLowerCase();
-      report = report.filter(r => 
-        (r.name || '').toLowerCase().includes(s) || 
-        (r.nameAr || '').includes(s)
-      );
+      const s = new RegExp(search, 'i');
+      itemMatch.$or = [
+        { 'items.name': s },
+        { 'items.nameAr': s },
+        { 'items.barcode': s },
+        { 'items.sku': s },
+        { 'customerObj.name': s },
+        { 'customerObj.phone': s },
+        { invoiceNumber: s }
+      ];
+    }
+    
+    if (invoice_number) itemMatch.invoiceNumber = new RegExp(invoice_number, 'i');
+    if (category) itemMatch['items.category'] = new RegExp(category, 'i');
+    if (brand) itemMatch['items.brand'] = new RegExp(brand, 'i');
+    if (customer_name) itemMatch['customerObj.name'] = new RegExp(customer_name, 'i');
+    if (user_name) itemMatch['userObj.name'] = new RegExp(user_name, 'i');
+    if (payment_method) itemMatch.paymentMethod = payment_method;
+
+    if (Object.keys(itemMatch).length > 0) {
+      pipeline.push({ $match: itemMatch });
     }
 
-    res.json({ success: true, data: report });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-};
-
-// ===================== MOTORCYCLES REPORT =====================
-exports.getMotorcyclesReport = async (req, res) => {
-  try {
-    const { from_date, to_date, period = 'month' } = req.query;
-    let dateQuery = { status: { $ne: 'cancelled' } };
-    if (from_date || to_date) {
-      dateQuery.createdAt = {};
-      if (from_date) dateQuery.createdAt.$gte = new Date(from_date);
-      if (to_date) { 
-        const end = new Date(to_date); end.setHours(23,59,59,999);
-        dateQuery.createdAt.$lte = end; 
+    // Add profit and filter by price/profit
+    pipeline.push({
+      $addFields: {
+        itemProfit: { $subtract: ['$items.total', { $multiply: ['$items.buyPrice', '$items.quantity'] }] },
+        dateString: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
       }
+    });
+
+    let priceProfitMatch = {};
+    if (min_price) priceProfitMatch['items.total'] = { ...priceProfitMatch['items.total'], $gte: Number(min_price) };
+    if (max_price) priceProfitMatch['items.total'] = { ...priceProfitMatch['items.total'], $lte: Number(max_price) };
+    if (min_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $gte: Number(min_profit) };
+    if (max_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $lte: Number(max_profit) };
+    
+    if (Object.keys(priceProfitMatch).length > 0) {
+      pipeline.push({ $match: priceProfitMatch });
     }
 
-    const [motoSales, motoStock] = await Promise.all([
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': 'motorcycles' } },
-        {
-          $group: {
-            _id: '$items.product',
-            name: { $first: '$items.name' },
-            brand: { $first: '$items.brand' },
-            model: { $first: '$items.model' },
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
-            totalCost: { $sum: { $multiply: ['$items.buyPrice', '$items.quantity'] } },
-            lastSaleDate: { $max: '$createdAt' },
-            avgSellPrice: { $avg: '$items.sellPrice' },
+    // Facet for items, summary, and charts
+    pipeline.push({
+      $facet: {
+        items: [
+          { $sort: { createdAt: -1 } },
+          {
+            $project: {
+              invoiceNumber: 1,
+              createdAt: 1,
+              paymentMethod: 1,
+              status: 1,
+              customerName: { $ifNull: ['$customerObj.name', 'عميل نقدي'] },
+              customerPhone: { $ifNull: ['$customerObj.phone', '-'] },
+              userName: { $ifNull: ['$userObj.name', '-'] },
+              productName: { $ifNull: ['$items.nameAr', '$items.name'] },
+              productType: '$items.productType',
+              category: '$items.category',
+              brand: '$items.brand',
+              model: '$items.model',
+              barcode: '$items.barcode',
+              sku: '$items.sku',
+              quantity: '$items.quantity',
+              buyPrice: '$items.buyPrice',
+              sellPrice: '$items.sellPrice',
+              totalSale: '$items.total',
+              totalProfit: '$itemProfit'
+            }
           }
-        },
-        { $addFields: { totalProfit: { $subtract: ['$totalRevenue', '$totalCost'] } } },
-        { $sort: { totalSold: -1 } }
-      ]),
-
-      // Sales by brand
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': 'motorcycles' } },
-        {
-          $group: {
-            _id: '$items.brand',
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
+        ],
+        summary: [
+          {
+            $group: {
+              _id: null,
+              totalQuantity: { $sum: '$items.quantity' },
+              totalRevenue: { $sum: '$items.total' },
+              totalProfit: { $sum: '$itemProfit' },
+              invoicesSet: { $addToSet: '$invoiceNumber' },
+            }
+          },
+          {
+            $project: {
+              totalQuantity: 1,
+              totalRevenue: 1,
+              totalProfit: 1,
+              totalInvoices: { $size: '$invoicesSet' },
+              avgSellPrice: { $cond: [{ $eq: ['$totalQuantity', 0] }, 0, { $divide: ['$totalRevenue', '$totalQuantity'] }] }
+            }
           }
-        },
-        { $sort: { totalSold: -1 } }
-      ]),
-    ]);
+        ],
+        byProduct: [
+          {
+            $group: {
+              _id: { $ifNull: ['$items.nameAr', '$items.name'] },
+              sold: { $sum: '$items.quantity' },
+              revenue: { $sum: '$items.total' },
+              profit: { $sum: '$itemProfit' }
+            }
+          },
+          { $sort: { sold: -1 } }
+        ],
+        byBrand: [
+          { $match: { 'items.brand': { $ne: null, $ne: '' } } },
+          {
+            $group: {
+              _id: '$items.brand',
+              sold: { $sum: '$items.quantity' },
+              revenue: { $sum: '$items.total' }
+            }
+          },
+          { $sort: { sold: -1 } }
+        ],
+        byCategory: [
+          { $match: { 'items.category': { $ne: null, $ne: '' } } },
+          {
+            $group: {
+              _id: '$items.category',
+              sold: { $sum: '$items.quantity' },
+              revenue: { $sum: '$items.total' }
+            }
+          },
+          { $sort: { sold: -1 } }
+        ],
+        byDate: [
+          {
+            $group: {
+              _id: '$dateString',
+              revenue: { $sum: '$items.total' },
+              profit: { $sum: '$itemProfit' }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ]
+      }
+    });
 
-    // Overall summary
-    const totalSold = motoSales.reduce((a, b) => a + b.totalSold, 0);
-    const totalRevenue = motoSales.reduce((a, b) => a + b.totalRevenue, 0);
-    const totalProfit = motoSales.reduce((a, b) => a + b.totalProfit, 0);
-    const topBrand = motoStock[0]?._id || null;
-    const bestModel = motoSales[0] ? { brand: motoSales[0].brand, model: motoSales[0].model, sold: motoSales[0].totalSold } : null;
-    const worstModel = motoSales.length > 1 ? { 
-      brand: motoSales[motoSales.length-1].brand, 
-      model: motoSales[motoSales.length-1].model, 
-      sold: motoSales[motoSales.length-1].totalSold 
-    } : null;
+    const result = await Sale.aggregate(pipeline);
+    const data = result[0];
 
-    // Current stock count
-    const stockCount = await Product.countDocuments({ productType: 'motorcycles', isActive: true, quantity: { $gt: 0 } });
+    const summary = data.summary[0] || {
+      totalQuantity: 0,
+      totalRevenue: 0,
+      totalProfit: 0,
+      totalInvoices: 0,
+      avgSellPrice: 0
+    };
+
+    const bestProduct = data.byProduct[0] || null;
+    const worstProduct = data.byProduct.length > 1 ? data.byProduct[data.byProduct.length - 1] : null;
+    const bestBrand = data.byBrand[0] || null;
+    const bestCategory = data.byCategory[0] || null;
 
     res.json({
       success: true,
       data: {
-        summary: { totalSold, totalRevenue, totalProfit, stockCount },
-        topBrand,
-        bestModel,
-        worstModel,
-        byModel: motoSales,
-        byBrand: motoStock,
+        items: data.items,
+        summary: {
+          ...summary,
+          bestProduct,
+          worstProduct,
+          bestBrand,
+          bestCategory
+        },
+        charts: {
+          byDate: data.byDate,
+          byProduct: data.byProduct.slice(0, 10), // top 10
+          byBrand: data.byBrand.slice(0, 10),
+          byCategory: data.byCategory.slice(0, 10)
+        }
       }
     });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
-};
-
-// ===================== SCOOTERS REPORT =====================
-exports.getScootersReport = async (req, res) => {
-  try {
-    const { from_date, to_date, search, sort_by = 'sold' } = req.query;
-    let dateQuery = { status: { $ne: 'cancelled' } };
-    if (from_date || to_date) {
-      dateQuery.createdAt = {};
-      if (from_date) dateQuery.createdAt.$gte = new Date(from_date);
-      if (to_date) { 
-        const end = new Date(to_date); end.setHours(23,59,59,999);
-        dateQuery.createdAt.$lte = end; 
-      }
-    }
-
-    const [scooterSales, byBrand] = await Promise.all([
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': 'scooters' } },
-        {
-          $group: {
-            _id: '$items.product',
-            name: { $first: '$items.name' },
-            brand: { $first: '$items.brand' },
-            model: { $first: '$items.model' },
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
-            totalCost: { $sum: { $multiply: ['$items.buyPrice', '$items.quantity'] } },
-            lastSaleDate: { $max: '$createdAt' },
-            avgSellPrice: { $avg: '$items.sellPrice' },
-          }
-        },
-        { $addFields: { totalProfit: { $subtract: ['$totalRevenue', '$totalCost'] } } },
-        { $sort: { totalSold: -1 } }
-      ]),
-      Sale.aggregate([
-        { $match: dateQuery },
-        { $unwind: '$items' },
-        { $match: { 'items.productType': 'scooters' } },
-        {
-          $group: {
-            _id: '$items.brand',
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' },
-          }
-        },
-        { $sort: { totalSold: -1 } }
-      ])
-    ]);
-
-    const totalSold = scooterSales.reduce((a, b) => a + b.totalSold, 0);
-    const totalRevenue = scooterSales.reduce((a, b) => a + b.totalRevenue, 0);
-    const totalProfit = scooterSales.reduce((a, b) => a + b.totalProfit, 0);
-    const avgSellPrice = scooterSales.length ? totalRevenue / totalSold : 0;
-
-    const stockCount = await Product.countDocuments({ productType: 'scooters', isActive: true, quantity: { $gt: 0 } });
-
-    let byModel = scooterSales;
-    if (search) {
-      const s = search.toLowerCase();
-      byModel = byModel.filter(r => 
-        (r.name || '').toLowerCase().includes(s) || 
-        (r.brand || '').toLowerCase().includes(s) ||
-        (r.model || '').toLowerCase().includes(s)
-      );
-    }
-
-    res.json({
-      success: true,
-      data: {
-        summary: { totalSold, totalRevenue, totalProfit, avgSellPrice, stockCount },
-        topBrand: byBrand[0]?._id || null,
-        bestModel: scooterSales[0] || null,
-        worstModel: scooterSales.length > 1 ? scooterSales[scooterSales.length-1] : null,
-        byModel,
-        byBrand,
-      }
-    });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) {
+    console.error('Advanced Report Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 };

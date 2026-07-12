@@ -340,6 +340,101 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Row 4: Top Customers and Employees */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card">
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أكثر العملاء شراءً' : 'Top Customers'}</h3>
+          {stats?.topCustomers?.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>{t('noData')}</p>
+          ) : (
+            <div className="space-y-3">
+              {stats?.topCustomers?.map((c, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ background: 'var(--bg-card2)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{c.name || (isRTL ? 'عميل نقدي' : 'Cash')}</span>
+                  </div>
+                  <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{c.count} {isRTL ? 'فواتير' : 'invoices'}</div>
+                    <div style={{ fontWeight: 900, color: '#10B981', fontSize: '13px' }}>{formatCurrency(c.revenue)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="card">
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أفضل الموظفين مبيعاً' : 'Top Employees'}</h3>
+          {stats?.topEmployees?.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>{t('noData')}</p>
+          ) : (
+            <div className="space-y-3">
+              {stats?.topEmployees?.map((u, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ background: 'var(--bg-card2)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#8B5CF6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{u.name || '-'}</span>
+                  </div>
+                  <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{u.count} {isRTL ? 'فواتير' : 'invoices'}</div>
+                    <div style={{ fontWeight: 900, color: '#2563EB', fontSize: '13px' }}>{formatCurrency(u.revenue)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 5: Top Brands and Categories */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card">
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أفضل الماركات' : 'Top Brands'}</h3>
+          {stats?.topBrands?.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>{t('noData')}</p>
+          ) : (
+            <div className="space-y-3">
+              {stats?.topBrands?.map((b, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#F59E0B', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{b._id}</span>
+                  </div>
+                  <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{b.sold} {isRTL ? 'قطعة' : 'pcs'}</div>
+                    <div style={{ fontWeight: 900, color: '#F59E0B', fontSize: '13px' }}>{formatCurrency(b.revenue)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="card">
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أفضل التصنيفات' : 'Top Categories'}</h3>
+          {stats?.topCategories?.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>{t('noData')}</p>
+          ) : (
+            <div className="space-y-3">
+              {stats?.topCategories?.map((c, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#EC4899', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{c._id}</span>
+                  </div>
+                  <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{c.sold} {isRTL ? 'قطعة' : 'pcs'}</div>
+                    <div style={{ fontWeight: 900, color: '#EC4899', fontSize: '13px' }}>{formatCurrency(c.revenue)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

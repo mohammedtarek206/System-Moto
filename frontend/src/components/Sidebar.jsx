@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Monitor, Users, Truck,
   Warehouse, BarChart3, Settings, X, Barcode, ShoppingBag, Wallet,
-  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge
+  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge, Battery, CircleDashed, Link, Sparkles
 } from 'lucide-react';
 
 const navGroups = [
@@ -54,6 +54,10 @@ const navGroups = [
       { key: 'sparePartsReports',  path: '/reports/spare-parts',   icon: TrendingUp, roles: ['admin'] },
       { key: 'motorcycleReports',  path: '/reports/motorcycles',   icon: Bike,       roles: ['admin'] },
       { key: 'scooterReports',     path: '/reports/scooters',      icon: Zap,        roles: ['admin'] },
+      { key: 'batteryReports',     path: '/reports/batteries',     icon: Battery,    roles: ['admin'] },
+      { key: 'tireReports',        path: '/reports/tires',         icon: CircleDashed,roles: ['admin'] },
+      { key: 'accessoryReports',   path: '/reports/accessories',   icon: Link,       roles: ['admin'] },
+      { key: 'extrasReports',      path: '/reports/extras',        icon: Sparkles,   roles: ['admin'] },
       { key: 'capital',            path: '/capital',               icon: DollarSign, roles: ['admin'] },
     ]
   },

@@ -29,6 +29,10 @@ exports.getDashboardStats = async (req, res) => {
       recentSales,
       chartData,
       topProductsRaw,
+      topCustomers,
+      topEmployees,
+      topBrands,
+      topCategories
     ] = await Promise.all([
       // Today revenue — use $totalAmount (always saved), fallback to $total
       Sale.aggregate([
@@ -50,12 +54,12 @@ exports.getDashboardStats = async (req, res) => {
         products.filter(p => p.quantity <= (p.minQuantity || 5))
       ),
 
-      // Recent 5 sales
+      // Recent 10 sales
       Sale.find({})
         .sort({ createdAt: -1 })
-        .limit(5)
+        .limit(10)
         .populate('customer', 'name')
-        .select('invoiceNumber customer total status createdAt')
+        .select('invoiceNumber customer total status createdAt items')
         .lean(),
 
       // 14-day chart data
@@ -113,6 +117,48 @@ exports.getDashboardStats = async (req, res) => {
         { $sort: { sold: -1 } },
         { $limit: 5 }
       ]),
+
+      // Top Customers
+      Sale.aggregate([
+        { $match: { status: { $ne: 'cancelled' }, customer: { $ne: null } } },
+        { $group: { _id: '$customer', revenue: { $sum: '$total' }, count: { $sum: 1 } } },
+        { $lookup: { from: 'customers', localField: '_id', foreignField: '_id', as: 'c' } },
+        { $unwind: '$c' },
+        { $project: { _id: 1, name: '$c.name', revenue: 1, count: 1 } },
+        { $sort: { revenue: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Top Employees
+      Sale.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        { $group: { _id: '$user', revenue: { $sum: '$total' }, count: { $sum: 1 } } },
+        { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+        { $unwind: '$u' },
+        { $project: { _id: 1, name: '$u.name', revenue: 1, count: 1 } },
+        { $sort: { revenue: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Top Brands
+      Sale.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        { $unwind: '$items' },
+        { $match: { 'items.brand': { $ne: null, $ne: '' } } },
+        { $group: { _id: '$items.brand', sold: { $sum: '$items.quantity' }, revenue: { $sum: '$items.total' } } },
+        { $sort: { sold: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Top Categories
+      Sale.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        { $unwind: '$items' },
+        { $match: { 'items.category': { $ne: null, $ne: '' } } },
+        { $group: { _id: '$items.category', sold: { $sum: '$items.quantity' }, revenue: { $sum: '$items.total' } } },
+        { $sort: { sold: -1 } },
+        { $limit: 5 }
+      ])
     ]);
 
     // Build 14-day chart with 0 for missing days
@@ -164,6 +210,10 @@ exports.getDashboardStats = async (req, res) => {
           min_quantity: p.minQuantity,
           sku: p.sku,
         })),
+        topCustomers: topCustomers || [],
+        topEmployees: topEmployees || [],
+        topBrands: topBrands || [],
+        topCategories: topCategories || [],
       }
     });
   } catch (err) {

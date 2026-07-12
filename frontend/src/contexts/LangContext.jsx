@@ -13,6 +13,8 @@ const translations = {
     capital: 'دورة رأس المال', expenses: 'المصروفات', revenues: 'الإيرادات',
     oilReports: 'تقارير الزيوت', sparePartsReports: 'تقارير قطع الغيار',
     motorcycleReports: 'تقارير الموتسيكلات', scooterReports: 'تقارير السكوترات',
+    batteryReports: 'تقارير البطاريات', tireReports: 'تقارير الإطارات',
+    accessoryReports: 'تقارير الإكسسوارات', extrasReports: 'تقارير الكماليات',
     // Common
     add: 'إضافة', edit: 'تعديل', delete: 'حذف', save: 'حفظ', cancel: 'إلغاء',
     search: 'بحث', filter: 'فلتر', export: 'تصدير', print: 'طباعة',
@@ -84,6 +86,8 @@ const translations = {
     capital: 'Capital Cycle', expenses: 'Expenses', revenues: 'Revenues',
     oilReports: 'Oil Reports', sparePartsReports: 'Spare Parts Reports',
     motorcycleReports: 'Motorcycle Reports', scooterReports: 'Scooter Reports',
+    batteryReports: 'Battery Reports', tireReports: 'Tire Reports',
+    accessoryReports: 'Accessory Reports', extrasReports: 'Extras Reports',
     add: 'Add', edit: 'Edit', delete: 'Delete', save: 'Save', cancel: 'Cancel',
     search: 'Search', filter: 'Filter', export: 'Export', print: 'Print',
     loading: 'Loading...', noData: 'No data found', confirm: 'Confirm',

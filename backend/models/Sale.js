@@ -16,9 +16,12 @@ const saleSchema = new mongoose.Schema({
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
     name: String,
     nameAr: String,
-    productType: String,   // spare_parts, oils, motorcycles, scooters, etc.
+    productType: String,   // spare_parts, oils, motorcycles, scooters, batteries, tires, accessories, extras
+    category: String,
     brand: String,
     model: String,
+    barcode: String,
+    sku: String,
     quantity: Number,
     buyPrice: Number,
     sellPrice: Number,
