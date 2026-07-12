@@ -139,8 +139,8 @@ exports.getCapitalSummary = async (req, res) => {
         { $match: { ...saleDateQuery, status: { $ne: 'cancelled' } } },
         { $group: { 
           _id: null, 
-          total: { $sum: { $ifNull: ['$totalAmount', '$total'] } },
-          cost: { $sum: '$totalCost' }
+          total: { $sum: { $ifNull: [{ $ifNull: ['$totalAmount', '$total'] }, 0] } },
+          cost: { $sum: { $ifNull: ['$totalCost', 0] } }
         }}
       ]),
 
@@ -169,8 +169,8 @@ exports.getCapitalSummary = async (req, res) => {
         { $match: { status: { $ne: 'cancelled' } } },
         { $group: {
           _id: { $dateToString: { format: dateFormat, date: '$createdAt' } },
-          total: { $sum: { $ifNull: ['$totalAmount', '$total'] } },
-          profit: { $sum: { $subtract: [{ $ifNull: ['$totalAmount', '$total'] }, '$totalCost'] } }
+          total: { $sum: { $ifNull: [{ $ifNull: ['$totalAmount', '$total'] }, 0] } },
+          profit: { $sum: { $subtract: [{ $ifNull: [{ $ifNull: ['$totalAmount', '$total'] }, 0] }, { $ifNull: ['$totalCost', 0] }] } }
         }},
         { $sort: { _id: 1 } },
         { $limit: 12 }

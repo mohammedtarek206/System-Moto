@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { TrendingUp, Download, FileText, Printer, Search, Filter } from 'lucide-react';
+import { TrendingUp, Download, FileText, Printer, Search, Filter, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, PieChart, Pie, Cell 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  AreaChart, Area 
 } from 'recharts';
+import { Link } from 'react-router-dom';
 import { exportToPDF, exportToExcel, exportToCSV, printTable, formatCurrency, formatDate, getDateRange } from '../lib/exportUtils';
 import { useLang } from '../contexts/LangContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -29,6 +30,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // Filters
   const [period, setPeriod] = useState('month');
@@ -56,6 +58,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (type !== 'all') params.set('type', type);
@@ -66,11 +69,15 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
       if (brand) params.set('brand', brand);
 
       const res = await axios.get(`${API}/reports/advanced?${params}`, { 
-        headers: { Authorization: `Bearer ${TOKEN()}` } 
+        headers: { Authorization: `Bearer ${TOKEN()}` },
+        timeout: 15000 // 15 seconds timeout
       });
       setData(res.data.data);
-    } catch { 
-      toast.error(isRTL ? 'فشل تحميل التقرير' : 'Failed to load report'); 
+    } catch (err) { 
+      console.error('Report Fetch Error:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Unknown error occurred';
+      setError(errMsg);
+      toast.error(isRTL ? `حدث خطأ: ${errMsg}` : `Error: ${errMsg}`); 
     } finally { 
       setLoading(false); 
     }
@@ -153,13 +160,47 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
             <Search size={14} style={{ position: 'absolute', insetInlineStart: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isRTL ? 'بحث شامل...' : 'Global search...'} className="input-field" style={{ paddingInlineStart: '32px', width: '220px' }} />
           </div>
+
+          <button onClick={fetchData} className="btn-secondary" style={{ padding: '8px' }}>
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
-          <div className="loading-spin" style={{ width: '40px', height: '40px', border: `2px solid ${color}`, borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px' }} />
-          {isRTL ? 'جاري تحليل البيانات...' : 'Analyzing data...'}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[1,2,3,4,5].map(i => <div key={i} className="stat-card animate-pulse" style={{ height: '80px', background: 'var(--bg-card2)' }} />)}
+          </div>
+          <div className="card animate-pulse" style={{ height: '300px', background: 'var(--bg-card2)' }} />
+          <div className="card animate-pulse" style={{ height: '400px', background: 'var(--bg-card2)' }} />
+        </div>
+      ) : error ? (
+        <div className="card flex flex-col items-center justify-center p-12 text-center border-red-500/20" style={{ border: '2px dashed var(--border)' }}>
+          <AlertTriangle size={48} className="text-red-500 mb-4" />
+          <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '8px' }}>{isRTL ? 'حدث خطأ أثناء تحميل التقرير' : 'Error loading report'}</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '400px' }}>{error}</p>
+          <button onClick={fetchData} className="btn-primary" style={{ background: 'var(--primary)' }}>
+            <RefreshCw size={18} className="mr-2" /> {isRTL ? 'إعادة المحاولة' : 'Try Again'}
+          </button>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center p-12 text-center" style={{ border: '2px dashed var(--border)', background: 'transparent' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-card2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+            {Icon ? <Icon size={40} style={{ color: 'var(--text-muted)' }} /> : <FileText size={40} style={{ color: 'var(--text-muted)' }} />}
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '8px' }}>{isRTL ? 'لا توجد بيانات حالياً' : 'No data found currently'}</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '400px' }}>
+            {isRTL ? 'لم يتم العثور على أي مبيعات تطابق شروط البحث أو الفلترة المحددة. يمكنك إضافة مبيعات جديدة لتبدأ بالظهور هنا.' : 'No sales match your current filters. Add new sales to see them here.'}
+          </p>
+          <div className="flex gap-4">
+            <Link to="/pos" className="btn-primary flex items-center gap-2" style={{ background: color }}>
+              <Plus size={18} /> {isRTL ? 'إضافة عملية بيع' : 'Add New Sale'}
+            </Link>
+            <button onClick={() => { setSearch(''); setFromDate(''); setToDate(''); setPeriod('all'); fetchData(); }} className="btn-secondary flex items-center gap-2">
+              <Filter size={18} /> {isRTL ? 'إزالة الفلاتر' : 'Clear Filters'}
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -209,7 +250,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="_id" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={v => formatCurrency(v)} />
+                  <RechartsTooltip contentStyle={tooltipStyle} formatter={v => formatCurrency(v)} />
                   <Area type="monotone" dataKey="revenue" name={isRTL ? 'الإيرادات' : 'Revenue'} stroke="#2563EB" fill="url(#colorRev)" />
                   <Area type="monotone" dataKey="profit" name={isRTL ? 'الأرباح' : 'Profit'} stroke="#10B981" fill="url(#colorPro)" />
                 </AreaChart>
@@ -225,7 +266,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                   <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                   <YAxis dataKey="_id" type="category" width={100} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <RechartsTooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="sold" name={isRTL ? 'الكمية' : 'Qty'} fill={color} radius={[0,4,4,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -241,10 +282,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
               </h3>
             </div>
             
-            {items.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>{isRTL ? 'لا توجد مبيعات في هذه الفترة' : 'No sales found'}</div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto' }}>
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -296,7 +334,6 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                   </tbody>
                 </table>
               </div>
-            )}
           </div>
         </>
       )}

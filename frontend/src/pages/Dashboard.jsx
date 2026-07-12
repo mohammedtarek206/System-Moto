@@ -340,8 +340,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      </div>
-
       {/* Row 4: Top Customers and Employees */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="card">
@@ -435,6 +433,7 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </motion.div>
   );
 }

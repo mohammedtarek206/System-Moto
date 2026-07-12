@@ -65,16 +65,25 @@ exports.getAdvancedReport = async (req, res) => {
     }
 
     // Add profit and filter by price/profit
+    // Using $convert to prevent 500 errors if legacy data has missing/string values
     pipeline.push({
       $addFields: {
-        itemProfit: { $subtract: ['$items.total', { $multiply: ['$items.buyPrice', '$items.quantity'] }] },
+        safeTotal: { $convert: { input: '$items.total', to: 'double', onError: 0, onNull: 0 } },
+        safeBuyPrice: { $convert: { input: '$items.buyPrice', to: 'double', onError: 0, onNull: 0 } },
+        safeQuantity: { $convert: { input: '$items.quantity', to: 'double', onError: 0, onNull: 0 } },
         dateString: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
       }
     });
 
+    pipeline.push({
+      $addFields: {
+        itemProfit: { $subtract: ['$safeTotal', { $multiply: ['$safeBuyPrice', '$safeQuantity'] }] }
+      }
+    });
+
     let priceProfitMatch = {};
-    if (min_price) priceProfitMatch['items.total'] = { ...priceProfitMatch['items.total'], $gte: Number(min_price) };
-    if (max_price) priceProfitMatch['items.total'] = { ...priceProfitMatch['items.total'], $lte: Number(max_price) };
+    if (min_price) priceProfitMatch.safeTotal = { ...priceProfitMatch.safeTotal, $gte: Number(min_price) };
+    if (max_price) priceProfitMatch.safeTotal = { ...priceProfitMatch.safeTotal, $lte: Number(max_price) };
     if (min_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $gte: Number(min_profit) };
     if (max_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $lte: Number(max_profit) };
     
@@ -103,10 +112,10 @@ exports.getAdvancedReport = async (req, res) => {
               model: '$items.model',
               barcode: '$items.barcode',
               sku: '$items.sku',
-              quantity: '$items.quantity',
-              buyPrice: '$items.buyPrice',
-              sellPrice: '$items.sellPrice',
-              totalSale: '$items.total',
+              quantity: '$safeQuantity',
+              buyPrice: '$safeBuyPrice',
+              sellPrice: { $convert: { input: '$items.sellPrice', to: 'double', onError: 0, onNull: 0 } },
+              totalSale: '$safeTotal',
               totalProfit: '$itemProfit'
             }
           }
@@ -115,8 +124,8 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: null,
-              totalQuantity: { $sum: '$items.quantity' },
-              totalRevenue: { $sum: '$items.total' },
+              totalQuantity: { $sum: '$safeQuantity' },
+              totalRevenue: { $sum: '$safeTotal' },
               totalProfit: { $sum: '$itemProfit' },
               invoicesSet: { $addToSet: '$invoiceNumber' },
             }
@@ -135,8 +144,8 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: { $ifNull: ['$items.nameAr', '$items.name'] },
-              sold: { $sum: '$items.quantity' },
-              revenue: { $sum: '$items.total' },
+              sold: { $sum: '$safeQuantity' },
+              revenue: { $sum: '$safeTotal' },
               profit: { $sum: '$itemProfit' }
             }
           },
@@ -147,8 +156,8 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: '$items.brand',
-              sold: { $sum: '$items.quantity' },
-              revenue: { $sum: '$items.total' }
+              sold: { $sum: '$safeQuantity' },
+              revenue: { $sum: '$safeTotal' }
             }
           },
           { $sort: { sold: -1 } }
@@ -158,8 +167,8 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: '$items.category',
-              sold: { $sum: '$items.quantity' },
-              revenue: { $sum: '$items.total' }
+              sold: { $sum: '$safeQuantity' },
+              revenue: { $sum: '$safeTotal' }
             }
           },
           { $sort: { sold: -1 } }
@@ -168,7 +177,7 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: '$dateString',
-              revenue: { $sum: '$items.total' },
+              revenue: { $sum: '$safeTotal' },
               profit: { $sum: '$itemProfit' }
             }
           },
