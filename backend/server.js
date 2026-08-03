@@ -43,6 +43,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/installments', require('./routes/installments'));
 app.use('/api/capital', require('./routes/capital'));       // دورة رأس المال
+app.use('/api/capital2', require('./routes/capital2'));    // رأس المال الشامل
 app.use('/api/reports', require('./routes/reports'));       // تقارير متقدمة
 
 // Health check
