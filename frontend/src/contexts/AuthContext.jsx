@@ -10,17 +10,19 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('moto_token');
     const savedUser = localStorage.getItem('moto_user');
-    
+
     const initAuth = async () => {
-      if (token && savedUser) {
+      if (token) {
         try {
-          setUser(JSON.parse(savedUser));
+          if (savedUser) setUser(JSON.parse(savedUser));
           const res = await api.get('/auth/me');
           setUser(res.data.data);
           localStorage.setItem('moto_user', JSON.stringify(res.data.data));
         } catch (err) {
           console.error('Auth verification failed:', err);
-          logout();
+          localStorage.removeItem('moto_token');
+          localStorage.removeItem('moto_user');
+          setUser(null);
         }
       }
       setLoading(false);
@@ -31,10 +33,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
-    const { token, user: userData } = res.data;
+    const { token } = res.data;
+
+    // Set token immediately so api calls work
     localStorage.setItem('moto_token', token);
+
+    // Verify completely with /auth/me
+    const meRes = await api.get('/auth/me');
+    const userData = meRes.data.data;
+
     localStorage.setItem('moto_user', JSON.stringify(userData));
     setUser(userData);
+
     return userData;
   };
 

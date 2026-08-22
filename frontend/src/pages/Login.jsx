@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Loader2, Eye, EyeOff, ShieldCheck, ChevronLeft, Sun, Moon } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const { isRTL } = useLang();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -18,13 +18,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // If already authenticated, redirect
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === 'admin') navigate('/');
+      else if (user.role === 'cashier') navigate('/');
+      else navigate('/'); // fallback
+    }
+  }, [user, authLoading, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password.trim());
       toast.success(isRTL ? 'تم تسجيل الدخول بنجاح' : 'Login successful');
-      navigate('/');
+      // Let useEffect handle navigation securely
     } catch (err) {
       toast.error(err.response?.data?.message || (isRTL ? 'بيانات الدخول غير صحيحة' : 'Login failed'));
     } finally {
@@ -34,13 +43,13 @@ export default function Login() {
 
   return (
     <div className="h-screen w-full flex font-['Cairo'] selection:bg-blue-500/30 overflow-hidden" dir="rtl" style={{ background: 'var(--bg-dark)' }}>
-      
+
       {/* 1. LEFT PANEL: Cinematic Branding (Hidden on Mobile) */}
       <div className="hidden lg:flex w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-700 to-blue-500 border-l border-blue-600" dir="ltr">
         <div className="absolute inset-0">
-          <img 
-            src="/motorcycle-bg.png" 
-            alt="Motorcycle" 
+          <img
+            src="/motorcycle-bg.png"
+            alt="Motorcycle"
             className="w-full h-full object-cover opacity-60"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
@@ -76,24 +85,24 @@ export default function Login() {
 
       {/* 2. RIGHT PANEL: Login Portal */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 md:p-12 relative overflow-y-auto" style={{ background: 'var(--bg-card)' }}>
-        
+
         {/* Theme toggle on login page */}
         <button onClick={toggleTheme} className="absolute top-4 end-4 z-20" style={{ width: '38px', height: '38px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           {isDark ? <Sun size={17} style={{ color: '#fbbf24' }} /> : <Moon size={17} style={{ color: 'var(--text-muted)' }} />}
         </button>
 
         <div className="lg:hidden absolute inset-0 z-0">
-            <img src="/motorcycle-bg.png" alt="" className="w-full h-full object-cover opacity-5 blur-sm" />
+          <img src="/motorcycle-bg.png" alt="" className="w-full h-full object-cover opacity-5 blur-sm" />
         </div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-[440px] z-10"
         >
           {/* Header with Logo */}
           <div className="mb-10 text-right">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mb-8 flex justify-start"
@@ -107,7 +116,7 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* Email Field */}
             <div className="space-y-2 text-right">
               <label className="text-sm font-bold mr-1 block" style={{ color: 'var(--text-secondary)' }}>البريد الإلكتروني</label>
@@ -159,7 +168,7 @@ export default function Login() {
             {/* Options */}
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-3 cursor-pointer group">
-                <div 
+                <div
                   onClick={() => setRememberMe(!rememberMe)}
                   style={{ width: '24px', height: '24px', borderRadius: '8px', border: `2px solid ${rememberMe ? '#2563eb' : 'var(--border)'}`, background: rememberMe ? '#2563eb' : 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                 >
