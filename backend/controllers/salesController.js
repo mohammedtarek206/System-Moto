@@ -1,11 +1,12 @@
 const Sale = require('../models/Sale');
 const Product = require('../models/Product');
+const AuditLog = require('../models/AuditLog');
 
 // ===================== CREATE SALE =====================
 exports.createSale = async (req, res) => {
   try {
     const { customer, items, discount = 0, tax = 0, paymentMethod = 'cash', paidAmount, notes } = req.body;
-    
+
     let totalAmount = 0;
     let totalCost = 0;
     const saleItems = [];
@@ -22,7 +23,7 @@ exports.createSale = async (req, res) => {
 
       const pt = product.productType || 'spare_parts';
       saleCategories.add(pt);
-      
+
       saleItems.push({
         product: item.product,
         name: product.name || product.brand || product.sku,
@@ -45,11 +46,11 @@ exports.createSale = async (req, res) => {
 
     // Determine sale category
     const cats = [...saleCategories];
-    const saleCategory = cats.length === 1 ? 
-      (cats[0] === 'oils' ? 'oils' : 
-       cats[0] === 'motorcycles' ? 'motorcycles' : 
-       cats[0] === 'scooters' ? 'scooters' :
-       cats[0] === 'spare_parts' ? 'spare_parts' : 'other') 
+    const saleCategory = cats.length === 1 ?
+      (cats[0] === 'oils' ? 'oils' :
+        cats[0] === 'motorcycles' ? 'motorcycles' :
+          cats[0] === 'scooters' ? 'scooters' :
+            cats[0] === 'spare_parts' ? 'spare_parts' : 'other')
       : 'mixed';
 
     const sale = await Sale.create({
@@ -81,17 +82,25 @@ exports.createSale = async (req, res) => {
       .populate('user', 'name')
       .populate('items.product', 'name nameAr sku barcode productType brand model');
 
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'إنشاء فاتورة',
+      details: { invoiceNumber: sale.invoiceNumber, total: sale.total }
+    });
+
     res.status(201).json({ success: true, message: 'تم إتمام البيع بنجاح', data: populatedSale });
-  } catch (err) { 
+  } catch (err) {
     console.error('Sale Error:', err);
-    res.status(500).json({ success: false, message: err.message }); 
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
 // ===================== GET SALES (with advanced filters) =====================
 exports.getSales = async (req, res) => {
   try {
-    const { 
+    const {
       from_date, to_date, search,
       customer_id, user_id, payment_method, status,
       product_type, sale_category,
@@ -112,6 +121,10 @@ exports.getSales = async (req, res) => {
         end.setHours(23, 59, 59, 999);
         query.createdAt.$lte = end;
       }
+    }
+
+    if (req.user.role === 'cashier') {
+      query.user = req.user._id;
     }
 
     // Status and payment
@@ -147,7 +160,7 @@ exports.getSales = async (req, res) => {
           { model: new RegExp(search, 'i') },
         ]
       }).select('_id');
-      
+
       const Customer = require('../models/Customer');
       const matchingCustomers = await Customer.find({
         $or: [
@@ -230,6 +243,15 @@ exports.cancelSale = async (req, res) => {
 
     sale.status = 'cancelled';
     await sale.save();
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'إلغاء فاتورة',
+      details: { invoiceNumber: sale.invoiceNumber }
+    });
+
     res.json({ success: true, message: 'تم إلغاء الفاتورة وإرجاع الكميات للمخزن' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
@@ -242,12 +264,12 @@ exports.migrateOldSales = async (req, res) => {
 
     for (const sale of sales) {
       let needsUpdate = false;
-      
+
       for (const item of sale.items) {
         // If old data missing crucial snapshot fields like productType or name
         if (!item.productType || !item.name) {
           needsUpdate = true;
-          
+
           if (item.product) {
             const product = await Product.findById(item.product);
             if (product) {
@@ -281,9 +303,9 @@ exports.migrateOldSales = async (req, res) => {
       }
     }
 
-    res.json({ 
-      success: true, 
-      message: 'تم ترحيل وتحديث بيانات المبيعات القديمة بنجاح', 
+    res.json({
+      success: true,
+      message: 'تم ترحيل وتحديث بيانات المبيعات القديمة بنجاح',
       migratedCount,
       totalSales: sales.length
     });

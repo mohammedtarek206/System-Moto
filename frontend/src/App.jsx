@@ -17,6 +17,7 @@ import Purchases from './pages/Purchases';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Users from './pages/Users';
 import BarcodePrint from './pages/BarcodePrint';
 import Installments from './pages/Installments';
 import Motorcycles from './pages/Motorcycles';
@@ -61,11 +62,12 @@ export default function App() {
                   <Route path="/purchases" element={<Purchases />} />
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/reports" element={<AdvancedReport type="all" title="تقرير جميع المبيعات" icon={BarChart3} color="#2563EB" />} />
+                  <Route path="/users" element={<Users />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/motorcycles" element={<Motorcycles />} />
                   <Route path="/scooters" element={<Scooters />} />
                   <Route path="/capital" element={<Capital />} />
-                  
+
                   {/* Category Reports */}
                   <Route path="/reports/oils" element={<AdvancedReport type="oils" title="تقارير الزيوت" icon={Droplet} color="#10B981" />} />
                   <Route path="/reports/spare-parts" element={<AdvancedReport type="spare_parts" title="تقارير قطع الغيار" icon={Package} color="#F59E0B" />} />

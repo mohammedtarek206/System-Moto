@@ -3,7 +3,7 @@ const router = express.Router();
 const { getPurchases, createPurchase } = require('../controllers/purchasesController');
 const { protect, authorize } = require('../middleware/auth');
 
-router.get('/', protect, getPurchases);
+router.get('/', protect, authorize('admin'), getPurchases);
 router.post('/', protect, authorize('admin', 'warehouse'), createPurchase);
 
 module.exports = router;

@@ -21,6 +21,37 @@ exports.getDashboardStats = async (req, res) => {
     chartStart.setDate(now.getDate() - 13);
     chartStart.setHours(0, 0, 0, 0);
 
+    if (req.user.role === 'cashier') {
+      const cashierSales = await Sale.find({ user: req.user._id, createdAt: { $gte: todayStart, $lte: todayEnd }, status: { $ne: 'cancelled' } });
+      const invoiceCount = cashierSales.length;
+      let itemsSold = 0;
+      cashierSales.forEach(s => s.items.forEach(i => itemsSold += i.quantity));
+
+      const recentSales = await Sale.find({ user: req.user._id })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('customer', 'name')
+        .select('invoiceNumber customer total status createdAt items')
+        .lean();
+
+      return res.json({
+        success: true,
+        data: {
+          isCashier: true,
+          today: { count: invoiceCount, itemsSold },
+          products: { total: await Product.countDocuments({ isActive: true }) },
+          recentSales: recentSales.map(s => ({
+            id: s._id,
+            invoice_number: s.invoiceNumber,
+            customer_name: s.customer?.name || null,
+            total: s.totalAmount || s.total || 0,
+            status: s.status,
+            date: s.createdAt,
+          }))
+        }
+      });
+    }
+
     const [
       todaySales,
       monthSales,
@@ -224,7 +255,7 @@ exports.getDashboardStats = async (req, res) => {
 exports.getProfitReport = async (req, res) => {
   try {
     const { group_by = 'day' } = req.query;
-    
+
     let dateFormat = '%Y-%m-%d';
     if (group_by === 'month') dateFormat = '%Y-%m';
     if (group_by === 'year') dateFormat = '%Y';
@@ -253,13 +284,15 @@ exports.getProfitReport = async (req, res) => {
             invoices: { $sum: 1 }
           }
         },
-        { $project: { 
-            period: '$_id', 
-            revenue: 1, 
-            cost: 1, 
-            invoices: 1, 
-            profit: { $subtract: ['$revenue', '$cost'] } 
-        }},
+        {
+          $project: {
+            period: '$_id',
+            revenue: 1,
+            cost: 1,
+            invoices: 1,
+            profit: { $subtract: ['$revenue', '$cost'] }
+          }
+        },
         { $sort: { period: -1 } },
         { $limit: 30 }
       ]),

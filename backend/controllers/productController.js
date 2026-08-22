@@ -2,15 +2,16 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const path = require('path');
 const fs = require('fs');
+const AuditLog = require('../models/AuditLog');
 
 // ===================== PRODUCTS =====================
 
 exports.getProducts = async (req, res) => {
   try {
-    const { 
-      category, search, moto_type, low_stock, 
+    const {
+      category, search, moto_type, low_stock,
       product_type, brand, model, condition,
-      page = 1, limit 
+      page = 1, limit
     } = req.query;
 
     let query = {};
@@ -50,7 +51,7 @@ exports.getProducts = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limitVal)
       .skip(skipVal);
-      
+
     const total = await Product.countDocuments(query);
     res.json({ success: true, data: products, total, page: parseInt(page), limit: limitVal });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -67,7 +68,7 @@ exports.getProduct = async (req, res) => {
 exports.createProduct = async (req, res) => {
   try {
     const data = { ...req.body };
-    
+
     // Handle uploaded images
     if (req.files && req.files.length > 0) {
       data.images = req.files.map(f => `/uploads/${f.filename}`);
@@ -83,9 +84,9 @@ exports.createProduct = async (req, res) => {
 
     // Auto-generate SKU and Barcode FIRST (before any checks)
     if (!data.sku || data.sku.trim() === '') {
-      const prefix = data.productType === 'motorcycles' ? 'MOTO' : 
-                     data.productType === 'scooters' ? 'SCT' :
-                     data.productType === 'oils' ? 'OIL' : 'SKU';
+      const prefix = data.productType === 'motorcycles' ? 'MOTO' :
+        data.productType === 'scooters' ? 'SCT' :
+          data.productType === 'oils' ? 'OIL' : 'SKU';
       data.sku = `${prefix}-${Date.now()}${Math.floor(Math.random() * 1000)}`;
     }
     if (!data.barcode || data.barcode.trim() === '') {
@@ -103,6 +104,10 @@ exports.createProduct = async (req, res) => {
     ['buyPrice', 'sellPrice', 'quantity', 'minQuantity', 'year', 'engineCC'].forEach(f => {
       if (data[f] !== undefined && data[f] !== '') data[f] = Number(data[f]);
     });
+
+    if (req.user && req.user.role === 'cashier') {
+      delete data.buyPrice;
+    }
 
     // Parse images array if sent as JSON string
     if (typeof data.images === 'string') {
@@ -124,6 +129,15 @@ exports.createProduct = async (req, res) => {
     }
 
     const product = await Product.create(data);
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'إضافة منتج',
+      details: { productId: product._id, name: product.name }
+    });
+
     res.status(201).json({ success: true, message: 'تم إضافة المنتج بنجاح', data: product });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -134,21 +148,21 @@ exports.scanBarcode = async (req, res) => {
   try {
     const { barcode } = req.params;
     const cleanBarcode = barcode.trim();
-    
+
     const product = await Product.findOne({
       $or: [
         { barcode: { $regex: new RegExp(`^${cleanBarcode}$`, 'i') } },
         { sku: { $regex: new RegExp(`^${cleanBarcode}$`, 'i') } }
       ]
     }).populate('category');
-    
+
     if (!product) {
       return res.status(404).json({ success: false, message: 'المنتج غير موجود في قاعدة البيانات بهذا الباركود أو الرمز (SKU)' });
     }
-    
+
     res.json({ success: true, data: product });
-  } catch (err) { 
-    res.status(500).json({ success: false, message: err.message }); 
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -170,6 +184,10 @@ exports.updateProduct = async (req, res) => {
       if (data[f] !== undefined && data[f] !== '') data[f] = Number(data[f]);
     });
 
+    if (req.user && req.user.role === 'cashier') {
+      delete data.buyPrice;
+    }
+
     if (typeof data.images === 'string') {
       try { data.images = JSON.parse(data.images); } catch { data.images = [data.images]; }
     }
@@ -177,6 +195,15 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findByIdAndUpdate(req.params.id, data, { new: true })
       .populate('category').populate('supplier', 'name');
     if (!product) return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'تعديل منتج',
+      details: { productId: product._id, name: product.name, updatedFields: Object.keys(req.body) }
+    });
+
     res.json({ success: true, message: 'تم تحديث المنتج', data: product });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
@@ -185,6 +212,15 @@ exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'حذف منتج',
+      details: { productId: product._id, name: product.name }
+    });
+
     res.json({ success: true, message: 'تم حذف المنتج بنجاح' });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
@@ -232,24 +268,24 @@ exports.getLowStock = async (req, res) => {
 exports.getInventoryStats = async (req, res) => {
   try {
     const allProducts = await Product.find({ isActive: true }).populate('category').lean();
-    
+
     const lowStock = allProducts.filter(p => p.quantity > 0 && p.quantity <= (p.minQuantity || 5));
     const outOfStock = allProducts.filter(p => p.quantity <= 0);
-    
+
     // Stagnant: products not sold in last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const Sale = require('../models/Sale');
-    const recentSales = await Sale.find({ 
+    const recentSales = await Sale.find({
       createdAt: { $gte: thirtyDaysAgo },
       status: { $ne: 'cancelled' }
     }).select('items.product').lean();
-    
+
     const soldProductIds = new Set();
     recentSales.forEach(s => s.items.forEach(i => soldProductIds.add(String(i.product))));
-    
-    const stagnant = allProducts.filter(p => 
+
+    const stagnant = allProducts.filter(p =>
       p.quantity > 0 && !soldProductIds.has(String(p._id))
     );
 
@@ -257,8 +293,8 @@ exports.getInventoryStats = async (req, res) => {
     const totalValue = allProducts.reduce((acc, p) => acc + (p.buyPrice * p.quantity), 0);
     const totalSellValue = allProducts.reduce((acc, p) => acc + (p.sellPrice * p.quantity), 0);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
         total: allProducts.length,
         lowStock,

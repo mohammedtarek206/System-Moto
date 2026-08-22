@@ -17,10 +17,10 @@ const smartUpload = (req, res, next) => {
 };
 
 // Capital summary
-router.get('/summary', protect, getCapitalSummary);
+router.get('/summary', protect, authorize('admin'), getCapitalSummary);
 
 // Expenses CRUD
-router.get('/', protect, getExpenses);
+router.get('/', protect, authorize('admin'), getExpenses);
 router.post('/', protect, authorize('admin'), smartUpload, createExpense);
 router.put('/:id', protect, authorize('admin'), smartUpload, updateExpense);
 router.delete('/:id', protect, authorize('admin'), deleteExpense);

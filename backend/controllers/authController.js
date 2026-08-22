@@ -1,12 +1,15 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const AuditLog = require('../models/AuditLog');
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    let { name, email, password, role, phone } = req.body;
+    if (email) email = email.toLowerCase().trim();
+    if (password) password = password.trim();
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, message: 'البريد الإلكتروني مستخدم بالفعل' });
     const user = await User.create({ name, email, password, role, phone });
@@ -17,7 +20,9 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    if (email) email = email.toLowerCase().trim();
+    if (password) password = password.trim();
     const user = await User.findOne({ email });
     if (!user || !user.isActive) return res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة' });
     const isMatch = await user.comparePassword(password);
@@ -25,6 +30,14 @@ exports.login = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
     const token = generateToken(user._id);
+
+    await AuditLog.create({
+      user: user._id,
+      userName: user.name,
+      role: user.role,
+      action: 'تسجيل الدخول'
+    });
+
     res.json({ success: true, message: 'تم تسجيل الدخول بنجاح', token, user: { id: user._id.toString(), name: user.name, role: user.role, email: user.email } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
@@ -67,7 +80,14 @@ exports.getUsers = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select('-password');
+    const data = { ...req.body };
+    if (data.email) data.email = data.email.toLowerCase().trim();
+    if (data.password) {
+      data.password = data.password.trim();
+      const salt = await bcrypt.genSalt(10);
+      data.password = await bcrypt.hash(data.password, salt);
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, data, { new: true }).select('-password');
     res.json({ success: true, message: 'تم تحديث بيانات المستخدم', data: user });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };

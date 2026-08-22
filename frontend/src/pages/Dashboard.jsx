@@ -24,10 +24,11 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [statsRes, capRes] = await Promise.all([
-          api.get('/dashboard/stats'),
-          api.get('/capital/summary'),
-        ]);
+        let capRes = { data: { data: null } };
+        if (user?.role === 'admin') {
+          try { capRes = await api.get('/capital/summary'); } catch { }
+        }
+        const statsRes = await api.get('/dashboard/stats');
         setStats(statsRes.data.data);
         setCapital(capRes.data.data);
         // Try to get recent sold items
@@ -74,6 +75,79 @@ export default function Dashboard() {
       hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short'
     });
   };
+
+  if (stats?.isCashier) {
+    return (
+      <div className="space-y-6 fade-in">
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-black">{isRTL ? 'مرحباً، ' : 'Welcome, '}{user?.name} 👋</h2>
+            <p className="text-[var(--text-muted)] mt-1">{isRTL ? 'نظرة سريعة على مبيعاتك اليوم' : 'Quick look at your sales today'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="stat-card p-6">
+            <div className="stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><Receipt size={24} /></div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, marginTop: '12px' }}>{isRTL ? 'فواتيرك اليوم' : 'Your Invoices Today'}</div>
+            <div style={{ fontSize: '32px', fontWeight: 900, marginTop: '4px' }}>{stats.today?.count || 0}</div>
+          </div>
+
+          <div className="stat-card p-6">
+            <div className="stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}><Package size={24} /></div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, marginTop: '12px' }}>{isRTL ? 'المنتجات المباعة اليوم' : 'Products Sold Today'}</div>
+            <div style={{ fontSize: '32px', fontWeight: 900, marginTop: '4px' }}>{stats.today?.itemsSold || 0}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <a href="/pos" className="btn btn-primary h-16 rounded-2xl gap-3 font-black text-xl bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/30 flex items-center justify-center">
+            <Monitor size={24} /> {isRTL ? 'فتح شاشة البيع (POS)' : 'Open POS'}
+          </a>
+          <a href="/products" className="btn btn-secondary h-16 rounded-2xl gap-3 font-black text-xl flex items-center justify-center">
+            <Package size={24} /> {isRTL ? 'إدارة المنتجات' : 'Products'}
+          </a>
+        </div>
+
+        <div className="table-wrapper">
+          <div className="p-4 flex-between" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '15px' }}>{isRTL ? 'آخر العمليات التي قمت بها' : 'Your Recent Sales'}</h3>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t('invoiceNo')}</th>
+                  <th>{t('customer')}</th>
+                  <th>{t('total')}</th>
+                  <th>{t('status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats?.recentSales?.map((sale) => (
+                  <tr key={sale.id}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-muted)' }}>{sale.invoice_number}</td>
+                    <td style={{ color: 'var(--text-primary)' }}>{sale.customer_name || (isRTL ? 'عميل نقدي' : 'Cash Customer')}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(sale.total)}</td>
+                    <td>
+                      <span className={`badge ${sale.status === 'completed' ? 'badge-success' : sale.status === 'cancelled' ? 'badge-danger' : 'badge-warning'}`}>
+                        {t(sale.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {(!stats?.recentSales || stats.recentSales.length === 0) && (
+                  <tr>
+                    <td colSpan={4} className="text-center p-8 opacity-50">{t('noData')}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const statCards = [
     {
@@ -169,8 +243,8 @@ export default function Dashboard() {
             <AreaChart data={stats?.chartData || []}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.25}/>
-                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#2563EB" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -351,7 +425,7 @@ export default function Dashboard() {
               {stats?.topCustomers?.map((c, i) => (
                 <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ background: 'var(--bg-card2)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i + 1}</div>
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{c.name || (isRTL ? 'عميل نقدي' : 'Cash')}</span>
                   </div>
                   <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
@@ -363,7 +437,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        
+
         <div className="card">
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أفضل الموظفين مبيعاً' : 'Top Employees'}</h3>
           {stats?.topEmployees?.length === 0 ? (
@@ -373,7 +447,7 @@ export default function Dashboard() {
               {stats?.topEmployees?.map((u, i) => (
                 <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ background: 'var(--bg-card2)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#8B5CF6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#8B5CF6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i + 1}</div>
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{u.name || '-'}</span>
                   </div>
                   <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
@@ -398,7 +472,7 @@ export default function Dashboard() {
               {stats?.topBrands?.map((b, i) => (
                 <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#F59E0B', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#F59E0B', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i + 1}</div>
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{b._id}</span>
                   </div>
                   <div style={{ textAlign: isRTL ? 'left' : 'right' }}>
@@ -410,7 +484,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        
+
         <div className="card">
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px' }}>{isRTL ? 'أفضل التصنيفات' : 'Top Categories'}</h3>
           {stats?.topCategories?.length === 0 ? (
@@ -420,7 +494,7 @@ export default function Dashboard() {
               {stats?.topCategories?.map((c, i) => (
                 <div key={i} className="flex justify-between items-center p-3 rounded-xl" style={{ border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#EC4899', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i+1}</div>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#EC4899', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '12px' }}>{i + 1}</div>
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{c._id}</span>
                   </div>
                   <div style={{ textAlign: isRTL ? 'left' : 'right' }}>

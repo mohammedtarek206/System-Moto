@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
-const { 
-  getProducts, getProduct, createProduct, updateProduct, deleteProduct, 
-  getCategories, createCategory, updateCategory, deleteCategory, 
+const {
+  getProducts, getProduct, createProduct, updateProduct, deleteProduct,
+  getCategories, createCategory, updateCategory, deleteCategory,
   getLowStock, scanBarcode, getInventoryStats
 } = require('../controllers/productController');
 const upload = require('../middleware/upload');
@@ -13,8 +13,8 @@ router.get('/low-stock', protect, getLowStock);
 router.get('/inventory-stats', protect, getInventoryStats);
 router.get('/categories', protect, getCategories);
 router.get('/scan/:barcode', protect, scanBarcode);
-router.post('/categories', protect, authorize('admin', 'warehouse'), createCategory);
-router.put('/categories/:id', protect, authorize('admin', 'warehouse'), updateCategory);
+router.post('/categories', protect, authorize('admin', 'warehouse', 'cashier'), createCategory);
+router.put('/categories/:id', protect, authorize('admin', 'warehouse', 'cashier'), updateCategory);
 router.delete('/categories/:id', protect, authorize('admin'), deleteCategory);
 router.get('/:id', protect, getProduct);
 
@@ -36,8 +36,8 @@ const smartUpload = (req, res, next) => {
   }
 };
 
-router.post('/', protect, authorize('admin', 'warehouse'), smartUpload, createProduct);
-router.put('/:id', protect, authorize('admin', 'warehouse'), smartUpload, updateProduct);
+router.post('/', protect, authorize('admin', 'warehouse', 'cashier'), smartUpload, createProduct);
+router.put('/:id', protect, authorize('admin', 'warehouse', 'cashier'), smartUpload, updateProduct);
 router.delete('/:id', protect, authorize('admin'), deleteProduct);
 
 module.exports = router;

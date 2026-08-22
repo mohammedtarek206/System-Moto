@@ -6,42 +6,42 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Monitor, Users, Truck,
   Warehouse, BarChart3, Settings, X, Barcode, ShoppingBag, Wallet,
-  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge, Battery, CircleDashed, Link, Sparkles
+  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge, Battery, CircleDashed, Link, Sparkles, UserCog
 } from 'lucide-react';
 
 const navGroups = [
   {
     label: null,
     items: [
-      { key: 'dashboard', path: '/', icon: LayoutDashboard, roles: ['admin','cashier','warehouse'] },
+      { key: 'dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'cashier', 'warehouse'] },
     ]
   },
   {
     label: 'المبيعات والكاشير',
     labelEn: 'Sales & POS',
     items: [
-      { key: 'pos',          path: '/pos',          icon: Monitor,       roles: ['admin','cashier'] },
-      { key: 'sales',        path: '/sales',        icon: ShoppingCart,  roles: ['admin','cashier'] },
-      { key: 'installments', path: '/installments', icon: Wallet,        roles: ['admin','cashier'] },
+      { key: 'pos', path: '/pos', icon: Monitor, roles: ['admin', 'cashier'] },
+      { key: 'sales', path: '/sales', icon: ShoppingCart, roles: ['admin', 'cashier'] },
+      { key: 'installments', path: '/installments', icon: Wallet, roles: ['admin', 'cashier'] },
     ]
   },
   {
     label: 'المنتجات والمخزن',
     labelEn: 'Products & Inventory',
     items: [
-      { key: 'products',    path: '/products',    icon: Package,   roles: ['admin','warehouse'] },
-      { key: 'motorcycles', path: '/motorcycles', icon: Bike,      roles: ['admin','warehouse'] },
-      { key: 'scooters',    path: '/scooters',    icon: Gauge,     roles: ['admin','warehouse'] },
-      { key: 'barcodes',    path: '/barcodes',    icon: Barcode,   roles: ['admin','warehouse'] },
-      { key: 'inventory',   path: '/inventory',   icon: Warehouse, roles: ['admin','warehouse'] },
+      { key: 'products', path: '/products', icon: Package, roles: ['admin', 'warehouse', 'cashier'] },
+      { key: 'motorcycles', path: '/motorcycles', icon: Bike, roles: ['admin', 'warehouse'] },
+      { key: 'scooters', path: '/scooters', icon: Gauge, roles: ['admin', 'warehouse'] },
+      { key: 'barcodes', path: '/barcodes', icon: Barcode, roles: ['admin', 'warehouse'] },
+      { key: 'inventory', path: '/inventory', icon: Warehouse, roles: ['admin', 'warehouse'] },
     ]
   },
   {
     label: 'العملاء والموردين',
     labelEn: 'Contacts',
     items: [
-      { key: 'customers', path: '/customers', icon: Users,       roles: ['admin','cashier'] },
-      { key: 'suppliers', path: '/suppliers', icon: Truck,       roles: ['admin'] },
+      { key: 'customers', path: '/customers', icon: Users, roles: ['admin', 'cashier'] },
+      { key: 'suppliers', path: '/suppliers', icon: Truck, roles: ['admin'] },
       { key: 'purchases', path: '/purchases', icon: ShoppingBag, roles: ['admin'] },
     ]
   },
@@ -49,21 +49,22 @@ const navGroups = [
     label: 'التقارير والمالية',
     labelEn: 'Reports & Finance',
     items: [
-      { key: 'reports',            path: '/reports',               icon: BarChart3,  roles: ['admin'] },
-      { key: 'oilReports',         path: '/reports/oils',          icon: PieChart,   roles: ['admin'] },
-      { key: 'sparePartsReports',  path: '/reports/spare-parts',   icon: TrendingUp, roles: ['admin'] },
-      { key: 'motorcycleReports',  path: '/reports/motorcycles',   icon: Bike,       roles: ['admin'] },
-      { key: 'scooterReports',     path: '/reports/scooters',      icon: Zap,        roles: ['admin'] },
-      { key: 'batteryReports',     path: '/reports/batteries',     icon: Battery,    roles: ['admin'] },
-      { key: 'tireReports',        path: '/reports/tires',         icon: CircleDashed,roles: ['admin'] },
-      { key: 'accessoryReports',   path: '/reports/accessories',   icon: Link,       roles: ['admin'] },
-      { key: 'extrasReports',      path: '/reports/extras',        icon: Sparkles,   roles: ['admin'] },
-      { key: 'capital',            path: '/capital',               icon: DollarSign, roles: ['admin'] },
+      { key: 'reports', path: '/reports', icon: BarChart3, roles: ['admin'] },
+      { key: 'oilReports', path: '/reports/oils', icon: PieChart, roles: ['admin'] },
+      { key: 'sparePartsReports', path: '/reports/spare-parts', icon: TrendingUp, roles: ['admin'] },
+      { key: 'motorcycleReports', path: '/reports/motorcycles', icon: Bike, roles: ['admin'] },
+      { key: 'scooterReports', path: '/reports/scooters', icon: Zap, roles: ['admin'] },
+      { key: 'batteryReports', path: '/reports/batteries', icon: Battery, roles: ['admin'] },
+      { key: 'tireReports', path: '/reports/tires', icon: CircleDashed, roles: ['admin'] },
+      { key: 'accessoryReports', path: '/reports/accessories', icon: Link, roles: ['admin'] },
+      { key: 'extrasReports', path: '/reports/extras', icon: Sparkles, roles: ['admin'] },
+      { key: 'capital', path: '/capital', icon: DollarSign, roles: ['admin'] },
     ]
   },
   {
     label: null,
     items: [
+      { key: 'users', path: '/users', icon: UserCog, roles: ['admin'] },
       { key: 'settings', path: '/settings', icon: Settings, roles: ['admin'] },
     ]
   }
