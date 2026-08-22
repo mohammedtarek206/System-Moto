@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Package, Users, ShoppingCart,
-  AlertTriangle, DollarSign, Clock, Landmark, Receipt, ShoppingBag
+  AlertTriangle, DollarSign, Clock, Landmark, Receipt, ShoppingBag, Monitor
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useAuth } from '../contexts/AuthContext';
