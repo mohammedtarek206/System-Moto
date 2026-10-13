@@ -4,14 +4,15 @@ const Customer = require('../models/Customer');
 
 exports.getAdvancedReport = async (req, res) => {
   try {
-    const { 
+    const {
       type, // 'oils', 'spare_parts', 'motorcycles', 'scooters', 'batteries', 'tires', 'accessories', 'extras', 'all'
-      from_date, to_date, 
-      search, 
-      invoice_number, 
-      category, brand, 
+      from_date, to_date,
+      search,
+      invoice_number,
+      category, brand,
       customer_name, user_name, payment_method,
-      min_price, max_price, min_profit, max_profit
+      min_price, max_price, min_profit, max_profit,
+      has_discount
     } = req.query;
 
     let matchStage = { status: { $ne: 'cancelled' } };
@@ -26,12 +27,26 @@ exports.getAdvancedReport = async (req, res) => {
       }
     }
 
+    if (has_discount === 'true') {
+      matchStage.$or = [{ discount: { $gt: 0 } }, { 'items.itemDiscount': { $gt: 0 } }];
+    } else if (has_discount === 'false') {
+      matchStage.discount = 0;
+    }
+
     const pipeline = [
       { $match: matchStage },
       { $lookup: { from: 'customers', localField: 'customer', foreignField: '_id', as: 'customerObj' } },
       { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'userObj' } },
       { $unwind: { path: '$customerObj', preserveNullAndEmptyArrays: true } },
       { $unwind: { path: '$userObj', preserveNullAndEmptyArrays: true } },
+      // Keep invoice-level discount info before unwinding items
+      {
+        $addFields: {
+          invoiceDiscount: { $ifNull: ['$discount', 0] },
+          invoiceSubtotal: { $ifNull: ['$subtotal', 0] },
+          invoiceFinalTotal: { $ifNull: ['$total', { $ifNull: ['$totalAmount', 0] }] }
+        }
+      },
       { $unwind: '$items' }
     ];
 
@@ -52,7 +67,7 @@ exports.getAdvancedReport = async (req, res) => {
         { invoiceNumber: s }
       ];
     }
-    
+
     if (invoice_number) itemMatch.invoiceNumber = new RegExp(invoice_number, 'i');
     if (category) itemMatch['items.category'] = new RegExp(category, 'i');
     if (brand) itemMatch['items.brand'] = new RegExp(brand, 'i');
@@ -64,29 +79,55 @@ exports.getAdvancedReport = async (req, res) => {
       pipeline.push({ $match: itemMatch });
     }
 
-    // Add profit and filter by price/profit
+    // Add calculated fields including discount-aware calculations
     // Using $convert to prevent 500 errors if legacy data has missing/string values
     pipeline.push({
       $addFields: {
         safeTotal: { $convert: { input: '$items.total', to: 'double', onError: 0, onNull: 0 } },
         safeBuyPrice: { $convert: { input: '$items.buyPrice', to: 'double', onError: 0, onNull: 0 } },
         safeQuantity: { $convert: { input: '$items.quantity', to: 'double', onError: 0, onNull: 0 } },
+        safeSellPrice: { $convert: { input: '$items.sellPrice', to: 'double', onError: 0, onNull: 0 } },
+        safeItemDiscount: { $convert: { input: '$items.itemDiscount', to: 'double', onError: 0, onNull: 0 } },
         dateString: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
+      }
+    });
+
+    // Calculate line total and profit
+    // safeTotal is already after item discount, or fallback to sellPrice * qty
+    pipeline.push({
+      $addFields: {
+        effectiveLineTotal: {
+          $cond: [
+            { $gt: ['$safeTotal', 0] },
+            '$safeTotal', // If total stored (new records with item discount), use it
+            {
+              $subtract: [
+                { $multiply: ['$safeSellPrice', '$safeQuantity'] },
+                '$safeItemDiscount'
+              ]
+            }
+          ]
+        }
       }
     });
 
     pipeline.push({
       $addFields: {
-        itemProfit: { $subtract: ['$safeTotal', { $multiply: ['$safeBuyPrice', '$safeQuantity'] }] }
+        itemProfit: {
+          $subtract: [
+            '$effectiveLineTotal',
+            { $multiply: ['$safeBuyPrice', '$safeQuantity'] }
+          ]
+        }
       }
     });
 
     let priceProfitMatch = {};
-    if (min_price) priceProfitMatch.safeTotal = { ...priceProfitMatch.safeTotal, $gte: Number(min_price) };
-    if (max_price) priceProfitMatch.safeTotal = { ...priceProfitMatch.safeTotal, $lte: Number(max_price) };
+    if (min_price) priceProfitMatch.effectiveLineTotal = { ...priceProfitMatch.effectiveLineTotal, $gte: Number(min_price) };
+    if (max_price) priceProfitMatch.effectiveLineTotal = { ...priceProfitMatch.effectiveLineTotal, $lte: Number(max_price) };
     if (min_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $gte: Number(min_profit) };
     if (max_profit) priceProfitMatch.itemProfit = { ...priceProfitMatch.itemProfit, $lte: Number(max_profit) };
-    
+
     if (Object.keys(priceProfitMatch).length > 0) {
       pipeline.push({ $match: priceProfitMatch });
     }
@@ -115,9 +156,15 @@ exports.getAdvancedReport = async (req, res) => {
               sku: '$items.sku',
               quantity: '$safeQuantity',
               buyPrice: '$safeBuyPrice',
-              sellPrice: { $convert: { input: '$items.sellPrice', to: 'double', onError: 0, onNull: 0 } },
-              totalSale: '$safeTotal',
-              totalProfit: '$itemProfit'
+              sellPrice: '$safeSellPrice',
+              originalPrice: { $ifNull: ['$items.originalPrice', '$safeSellPrice'] },
+              cashierPrice: { $ifNull: ['$items.cashierPrice', null] },
+              itemDiscount: '$safeItemDiscount',
+              totalSale: '$effectiveLineTotal',
+              totalProfit: '$itemProfit',
+              invoiceDiscount: 1,
+              invoiceSubtotal: 1,
+              invoiceFinalTotal: 1
             }
           }
         ],
@@ -126,7 +173,10 @@ exports.getAdvancedReport = async (req, res) => {
             $group: {
               _id: null,
               totalQuantity: { $sum: '$safeQuantity' },
-              totalRevenue: { $sum: '$safeTotal' },
+              totalRevenueBeforeDiscount: { $sum: { $multiply: ['$safeSellPrice', '$safeQuantity'] } },
+              totalItemDiscounts: { $sum: '$safeItemDiscount' },
+              totalRevenue: { $sum: '$effectiveLineTotal' },
+              totalCost: { $sum: { $multiply: ['$safeBuyPrice', '$safeQuantity'] } },
               totalProfit: { $sum: '$itemProfit' },
               invoicesSet: { $addToSet: '$invoiceNumber' },
             }
@@ -134,10 +184,28 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $project: {
               totalQuantity: 1,
+              totalRevenueBeforeDiscount: 1,
+              totalItemDiscounts: 1,
               totalRevenue: 1,
+              totalCost: 1,
               totalProfit: 1,
               totalInvoices: { $size: '$invoicesSet' },
               avgSellPrice: { $cond: [{ $eq: ['$totalQuantity', 0] }, 0, { $divide: ['$totalRevenue', '$totalQuantity'] }] }
+            }
+          }
+        ],
+        // Invoice-level discount summary
+        invoiceSummary: [
+          {
+            $group: {
+              _id: '$invoiceNumber',
+              invoiceDiscount: { $first: '$invoiceDiscount' }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalInvoiceDiscounts: { $sum: '$invoiceDiscount' }
             }
           }
         ],
@@ -146,7 +214,7 @@ exports.getAdvancedReport = async (req, res) => {
             $group: {
               _id: { $ifNull: ['$items.nameAr', '$items.name'] },
               sold: { $sum: '$safeQuantity' },
-              revenue: { $sum: '$safeTotal' },
+              revenue: { $sum: '$effectiveLineTotal' },
               profit: { $sum: '$itemProfit' }
             }
           },
@@ -158,7 +226,7 @@ exports.getAdvancedReport = async (req, res) => {
             $group: {
               _id: '$items.brand',
               sold: { $sum: '$safeQuantity' },
-              revenue: { $sum: '$safeTotal' }
+              revenue: { $sum: '$effectiveLineTotal' }
             }
           },
           { $sort: { sold: -1 } }
@@ -169,7 +237,7 @@ exports.getAdvancedReport = async (req, res) => {
             $group: {
               _id: '$items.category',
               sold: { $sum: '$safeQuantity' },
-              revenue: { $sum: '$safeTotal' }
+              revenue: { $sum: '$effectiveLineTotal' }
             }
           },
           { $sort: { sold: -1 } }
@@ -178,7 +246,7 @@ exports.getAdvancedReport = async (req, res) => {
           {
             $group: {
               _id: '$dateString',
-              revenue: { $sum: '$safeTotal' },
+              revenue: { $sum: '$effectiveLineTotal' },
               profit: { $sum: '$itemProfit' }
             }
           },
@@ -192,11 +260,19 @@ exports.getAdvancedReport = async (req, res) => {
 
     const summary = data.summary[0] || {
       totalQuantity: 0,
+      totalRevenueBeforeDiscount: 0,
+      totalItemDiscounts: 0,
       totalRevenue: 0,
+      totalCost: 0,
       totalProfit: 0,
       totalInvoices: 0,
       avgSellPrice: 0
     };
+
+    const totalInvoiceDiscounts = (data.invoiceSummary[0] || {}).totalInvoiceDiscounts || 0;
+    summary.totalInvoiceDiscounts = totalInvoiceDiscounts;
+    summary.totalDiscounts = (summary.totalItemDiscounts || 0) + totalInvoiceDiscounts;
+    summary.netRevenue = summary.totalRevenue - totalInvoiceDiscounts;
 
     const bestProduct = data.byProduct[0] || null;
     const worstProduct = data.byProduct.length > 1 ? data.byProduct[data.byProduct.length - 1] : null;

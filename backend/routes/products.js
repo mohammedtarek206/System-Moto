@@ -4,7 +4,8 @@ const { protect, authorize } = require('../middleware/auth');
 const {
   getProducts, getProduct, createProduct, updateProduct, deleteProduct,
   getCategories, createCategory, updateCategory, deleteCategory,
-  getLowStock, scanBarcode, getInventoryStats
+  getLowStock, scanBarcode, getInventoryStats,
+  getCashierPrices, updateCashierPrice, bulkUpdateCashierPrices
 } = require('../controllers/productController');
 const upload = require('../middleware/upload');
 
@@ -16,6 +17,12 @@ router.get('/scan/:barcode', protect, scanBarcode);
 router.post('/categories', protect, authorize('admin', 'warehouse', 'cashier'), createCategory);
 router.put('/categories/:id', protect, authorize('admin', 'warehouse', 'cashier'), updateCategory);
 router.delete('/categories/:id', protect, authorize('admin'), deleteCategory);
+
+// Cashier Prices Management
+router.get('/cashier-prices', protect, authorize('admin', 'warehouse'), getCashierPrices);
+router.put('/cashier-prices/bulk', protect, authorize('admin'), bulkUpdateCashierPrices);
+router.put('/:id/cashier-price', protect, authorize('admin', 'warehouse'), updateCashierPrice);
+
 router.get('/:id', protect, getProduct);
 
 // Smart upload middleware: handles both JSON and multipart/form-data

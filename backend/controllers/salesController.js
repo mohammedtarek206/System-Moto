@@ -7,7 +7,8 @@ exports.createSale = async (req, res) => {
   try {
     const { customer, items, discount = 0, tax = 0, paymentMethod = 'cash', paidAmount, notes } = req.body;
 
-    let totalAmount = 0;
+    let subtotalBeforeDiscount = 0;  // مجموع الأسطر قبل أي خصم
+    let totalItemDiscounts = 0;       // مجموع خصومات البنود
     let totalCost = 0;
     const saleItems = [];
     const saleCategories = new Set();
@@ -18,8 +19,15 @@ exports.createSale = async (req, res) => {
       if (!product) throw new Error(`المنتج غير موجود: ${item.product}`);
       if (product.quantity < item.quantity) throw new Error(`الكمية غير كافية للمنتج: ${product.name || product.brand || product.sku}`);
 
-      totalAmount += item.sellPrice * item.quantity;
-      totalCost += (product.buyPrice || 0) * item.quantity;
+      const quantity = Number(item.quantity) || 0;
+      const sellPrice = Number(item.sellPrice) || 0;      // السعر الفعلي المستخدم (كاشير أو أساسي)
+      const itemDiscount = Math.max(0, Number(item.itemDiscount) || 0);  // خصم البند
+      const lineSubtotal = sellPrice * quantity;           // إجمالي البند قبل الخصم
+      const lineTotal = Math.max(0, lineSubtotal - itemDiscount); // إجمالي البند بعد الخصم
+
+      subtotalBeforeDiscount += lineSubtotal;
+      totalItemDiscounts += itemDiscount;
+      totalCost += (product.buyPrice || 0) * quantity;
 
       const pt = product.productType || 'spare_parts';
       saleCategories.add(pt);
@@ -34,15 +42,21 @@ exports.createSale = async (req, res) => {
         model: product.model || '',
         barcode: product.barcode || '',
         sku: product.sku || '',
-        quantity: item.quantity,
-        sellPrice: item.sellPrice,
+        quantity,
+        sellPrice,                           // السعر الفعلي المستخدم
+        originalPrice: product.sellPrice,    // السعر الأساسي للمنتج
+        cashierPrice: product.cashierPrice || null, // سعر الكاشير (إن وُجد)
         buyPrice: product.buyPrice,
-        total: item.sellPrice * item.quantity
+        itemDiscount,
+        total: lineTotal                     // إجمالي البند بعد الخصم
       });
     }
 
-    const subtotal = totalAmount;
-    const finalTotal = subtotal - Number(discount) + Number(tax);
+    // الإجمالي قبل خصم الفاتورة = مجموع البنود بعد خصوماتها
+    const subtotalAfterItemDiscounts = subtotalBeforeDiscount - totalItemDiscounts;
+    const invoiceDiscount = Math.max(0, Number(discount));
+    const taxAmount = Math.max(0, Number(tax));
+    const finalTotal = Math.max(0, subtotalAfterItemDiscounts - invoiceDiscount + taxAmount);
 
     // Determine sale category
     const cats = [...saleCategories];
@@ -59,14 +73,14 @@ exports.createSale = async (req, res) => {
       user: req.user._id,
       items: saleItems,
       saleCategory,
-      subtotal,
+      subtotal: subtotalBeforeDiscount,   // إجمالي قبل أي خصم
+      discount: invoiceDiscount,           // خصم الفاتورة الكلي
+      tax: taxAmount,
       total: finalTotal,
       totalAmount: finalTotal,
       totalCost,
-      discount: Number(discount),
-      tax: Number(tax),
-      paidAmount: paidAmount || finalTotal,
-      changeAmount: paidAmount ? Math.max(0, paidAmount - finalTotal) : 0,
+      paidAmount: paidAmount ? Number(paidAmount) : finalTotal,
+      changeAmount: paidAmount ? Math.max(0, Number(paidAmount) - finalTotal) : 0,
       paymentMethod,
       notes,
       status: 'completed'
@@ -74,7 +88,7 @@ exports.createSale = async (req, res) => {
 
     // Update Stock for all product types
     for (const item of items) {
-      await Product.findByIdAndUpdate(item.product, { $inc: { quantity: -item.quantity } });
+      await Product.findByIdAndUpdate(item.product, { $inc: { quantity: -Number(item.quantity) } });
     }
 
     const populatedSale = await Sale.findById(sale._id)
@@ -87,7 +101,7 @@ exports.createSale = async (req, res) => {
       userName: req.user.name,
       role: req.user.role,
       action: 'إنشاء فاتورة',
-      details: { invoiceNumber: sale.invoiceNumber, total: sale.total }
+      details: { invoiceNumber: sale.invoiceNumber, total: sale.total, discount: invoiceDiscount }
     });
 
     res.status(201).json({ success: true, message: 'تم إتمام البيع بنجاح', data: populatedSale });
@@ -106,6 +120,7 @@ exports.getSales = async (req, res) => {
       product_type, sale_category,
       min_price, max_price,
       invoice_number, customer_name, customer_phone,
+      has_discount,
       sort_by = 'newest',
       page = 1, limit = 50
     } = req.query;
@@ -143,6 +158,13 @@ exports.getSales = async (req, res) => {
 
     // Invoice number filter
     if (invoice_number) query.invoiceNumber = new RegExp(invoice_number, 'i');
+
+    // Discount filter
+    if (has_discount === 'true') {
+      query.$or = [{ discount: { $gt: 0 } }, { 'items.itemDiscount': { $gt: 0 } }];
+    } else if (has_discount === 'false') {
+      query.discount = { $eq: 0 };
+    }
 
     // Product type filter (in items)
     if (product_type) {
@@ -191,6 +213,14 @@ exports.getSales = async (req, res) => {
       const Customer = require('../models/Customer');
       const customers = await Customer.find({ phone: new RegExp(customer_phone, 'i') }).select('_id');
       query.customer = { $in: customers.map(c => c._id) };
+    }
+
+    // Cashier (employee) name filter
+    const cashier = req.query.cashier;
+    if (cashier && !search) {
+      const User = require('../models/User');
+      const matchingUsers = await User.find({ name: new RegExp(cashier, 'i') }).select('_id');
+      query.user = { $in: matchingUsers.map(u => u._id) };
     }
 
     // Sort
@@ -283,15 +313,42 @@ exports.migrateOldSales = async (req, res) => {
               item.sku = product.sku || '';
               // Also ensure buyPrice is stored for accurate historical profit
               if (!item.buyPrice) item.buyPrice = product.buyPrice || 0;
+              // Ensure originalPrice is set for old records
+              if (!item.originalPrice) item.originalPrice = product.sellPrice || item.sellPrice || 0;
+              // Ensure itemDiscount defaults to 0 for old records
+              if (item.itemDiscount === undefined || item.itemDiscount === null) item.itemDiscount = 0;
+              // Recalculate total if missing
+              if (!item.total) item.total = (item.sellPrice || 0) * (item.quantity || 1);
             } else {
               // Product was deleted, fallback to minimal defaults
               item.name = 'منتج محذوف';
               item.nameAr = 'منتج محذوف';
               item.productType = 'other';
               if (!item.buyPrice) item.buyPrice = 0;
+              if (item.itemDiscount === undefined || item.itemDiscount === null) item.itemDiscount = 0;
+              if (!item.total) item.total = (item.sellPrice || 0) * (item.quantity || 1);
             }
           }
+        } else {
+          // For records that have name/productType but may be missing new fields
+          if (item.itemDiscount === undefined || item.itemDiscount === null) {
+            item.itemDiscount = 0;
+            needsUpdate = true;
+          }
+          if (!item.total) {
+            item.total = (item.sellPrice || 0) * (item.quantity || 1);
+            needsUpdate = true;
+          }
+          if (!item.originalPrice) {
+            item.originalPrice = item.sellPrice || 0;
+            needsUpdate = true;
+          }
         }
+      }
+
+      // Recalculate subtotal if it's missing
+      if (!sale.subtotal && needsUpdate) {
+        sale.subtotal = sale.items.reduce((acc, it) => acc + ((it.sellPrice || 0) * (it.quantity || 1)), 0);
       }
 
       if (needsUpdate) {

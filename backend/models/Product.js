@@ -6,7 +6,7 @@ const productSchema = new mongoose.Schema({
   sku: { type: String, unique: true, sparse: true },
   barcode: { type: String, sparse: true },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
-  
+
   // Product type classification
   productType: {
     type: String,
@@ -27,10 +27,15 @@ const productSchema = new mongoose.Schema({
   motoType: String,       // backward compatibility
   buyPrice: { type: Number, default: 0 },
   sellPrice: { type: Number, default: 0 },
+  cashierPrice: { type: Number, default: null }, // سعر الكاشير المستقل
+  minSellPrice: { type: Number, default: null }, // الحد الأدنى لسعر البيع
+  cashierPriceUpdatedAt: Date,
+  cashierPriceUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  cashierPriceUpdatedByName: String,
   quantity: { type: Number, default: 0 },
   minQuantity: { type: Number, default: 5 },
   unit: { type: String, default: 'piece' },
-  
+
   // Images - support multiple
   image: String,          // primary image (backward compat)
   images: [String],       // additional images

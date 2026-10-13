@@ -3,9 +3,9 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { TrendingUp, Download, FileText, Printer, Search, Filter, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-  AreaChart, Area 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  AreaChart, Area
 } from 'recharts';
 import { Link } from 'react-router-dom';
 import { exportToPDF, exportToExcel, exportToCSV, printTable, formatCurrency, formatDate, getDateRange } from '../lib/exportUtils';
@@ -14,7 +14,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const TOKEN = () => localStorage.getItem('moto_token');
-const COLORS = ['#2563EB','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'];
+const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 const PERIODS = [
   { l: 'الكل', v: 'all' },
@@ -28,11 +28,11 @@ const PERIODS = [
 export default function AdvancedReport({ type = 'all', title, icon: Icon, color = '#2563EB' }) {
   const { t, isRTL } = useLang();
   const { isDark } = useTheme();
-  
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Filters
   const [period, setPeriod] = useState('all');
   const [fromDate, setFromDate] = useState('');
@@ -40,13 +40,13 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [brand, setBrand] = useState('');
-  
+
   const applyPeriod = (p) => {
     setPeriod(p);
-    if (p !== 'custom') { 
-      const { from, to } = getDateRange(p); 
-      setFromDate(from || ''); 
-      setToDate(to || ''); 
+    if (p !== 'custom') {
+      const { from, to } = getDateRange(p);
+      setFromDate(from || '');
+      setToDate(to || '');
     }
   };
 
@@ -67,18 +67,18 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
       if (category) params.set('category', category);
       if (brand) params.set('brand', brand);
 
-      const res = await axios.get(`${API}/reports/advanced?${params}`, { 
+      const res = await axios.get(`${API}/reports/advanced?${params}`, {
         headers: { Authorization: `Bearer ${TOKEN()}` },
         timeout: 15000 // 15 seconds timeout
       });
       setData(res.data.data);
-    } catch (err) { 
+    } catch (err) {
       console.error('Report Fetch Error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Unknown error occurred';
       setError(errMsg);
-      toast.error(isRTL ? `حدث خطأ: ${errMsg}` : `Error: ${errMsg}`); 
-    } finally { 
-      setLoading(false); 
+      toast.error(isRTL ? `حدث خطأ: ${errMsg}` : `Error: ${errMsg}`);
+    } finally {
+      setLoading(false);
     }
   }, [type, fromDate, toDate, search, category, brand, isRTL]);
 
@@ -99,6 +99,8 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
     { key: 'quantity', header: isRTL ? 'الكمية' : 'Qty' },
     { key: 'buyPrice', header: isRTL ? 'سعر الشراء' : 'Buy Price', format: v => formatCurrency(v) },
     { key: 'sellPrice', header: isRTL ? 'سعر البيع' : 'Sell Price', format: v => formatCurrency(v) },
+    { key: 'itemDiscount', header: isRTL ? 'خصم البند' : 'Item Disc', format: v => v > 0 ? formatCurrency(v) : '-' },
+    { key: 'invoiceDiscount', header: isRTL ? 'خصم الفاتورة' : 'Inv Disc', format: v => v > 0 ? formatCurrency(v) : '-' },
     { key: 'totalSale', header: isRTL ? 'الإجمالي' : 'Total', format: v => formatCurrency(v) },
     { key: 'totalProfit', header: isRTL ? 'الربح' : 'Profit', format: v => formatCurrency(v) },
     { key: 'customerName', header: isRTL ? 'العميل' : 'Customer' },
@@ -146,7 +148,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
               transition: 'all 0.2s',
             }}>{p.l}</button>
           ))}
-          
+
           {period === 'custom' && (
             <div className="flex items-center gap-2">
               <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-field" style={{ width: 'auto' }} />
@@ -154,7 +156,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
               <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-field" style={{ width: 'auto' }} />
             </div>
           )}
-          
+
           <div className="relative" style={{ marginInlineStart: 'auto' }}>
             <Search size={14} style={{ position: 'absolute', insetInlineStart: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isRTL ? 'بحث شامل...' : 'Global search...'} className="input-field" style={{ paddingInlineStart: '32px', width: '220px' }} />
@@ -169,7 +171,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
       {loading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[1,2,3,4,5].map(i => <div key={i} className="stat-card animate-pulse" style={{ height: '80px', background: 'var(--bg-card2)' }} />)}
+            {[1, 2, 3, 4, 5].map(i => <div key={i} className="stat-card animate-pulse" style={{ height: '80px', background: 'var(--bg-card2)' }} />)}
           </div>
           <div className="card animate-pulse" style={{ height: '300px', background: 'var(--bg-card2)' }} />
           <div className="card animate-pulse" style={{ height: '400px', background: 'var(--bg-card2)' }} />
@@ -204,11 +206,14 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
       ) : (
         <>
           {/* Main Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: isRTL ? 'إجمالي الفواتير' : 'Total Invoices', value: summary.totalInvoices },
               { label: isRTL ? 'المنتجات المباعة' : 'Products Sold', value: summary.totalQuantity },
-              { label: isRTL ? 'إجمالي الإيرادات' : 'Total Revenue', value: formatCurrency(summary.totalRevenue), color: '#2563EB' },
+              { label: isRTL ? 'إجمالي الإيرادات (قبل خصم فاتورة)' : 'Gross Revenue', value: formatCurrency(summary.totalRevenue), color: '#2563EB' },
+              { label: isRTL ? 'إجمالي خصومات البنود' : 'Item Discounts', value: formatCurrency(summary.totalItemDiscounts || 0), color: '#F59E0B' },
+              { label: isRTL ? 'خصومات الفواتير' : 'Invoice Discounts', value: formatCurrency(summary.totalInvoiceDiscounts || 0), color: '#EF4444' },
+              { label: isRTL ? 'صافي المبيعات' : 'Net Revenue', value: formatCurrency(summary.netRevenue != null ? summary.netRevenue : summary.totalRevenue), color: '#06B6D4' },
               { label: isRTL ? 'إجمالي الأرباح' : 'Total Profit', value: formatCurrency(summary.totalProfit), color: '#10B981' },
               { label: isRTL ? 'متوسط سعر البيع' : 'Avg Sell Price', value: formatCurrency(summary.avgSellPrice) },
             ].map((s, i) => (
@@ -243,8 +248,8 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={charts.byDate}>
                   <defs>
-                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.3}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient>
-                    <linearGradient id="colorPro" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10B981" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.3} /><stop offset="95%" stopColor="#2563EB" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="colorPro" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="_id" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
@@ -266,7 +271,7 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                   <XAxis type="number" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                   <YAxis dataKey="_id" type="category" width={100} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                   <RechartsTooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="sold" name={isRTL ? 'الكمية' : 'Qty'} fill={color} radius={[0,4,4,0]} />
+                  <Bar dataKey="sold" name={isRTL ? 'الكمية' : 'Qty'} fill={color} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -280,72 +285,76 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
                 <span className="badge badge-info" style={{ marginInlineStart: '10px' }}>{items.length} {isRTL ? 'عنصر' : 'items'}</span>
               </h3>
             </div>
-            
+
             <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>{isRTL ? 'الفاتورة' : 'Invoice'}</th>
-                      <th>{isRTL ? 'التاريخ والوقت' : 'Date & Time'}</th>
-                      <th>{isRTL ? 'اسم المنتج' : 'Product'}</th>
-                      <th>{isRTL ? 'الباركود/الكود' : 'Barcode/SKU'}</th>
-                      <th>{isRTL ? 'الماركة/الموديل' : 'Brand/Model'}</th>
-                      <th>{isRTL ? 'الكمية' : 'Qty'}</th>
-                      <th>{isRTL ? 'سعر الشراء' : 'Buy'}</th>
-                      <th>{isRTL ? 'سعر البيع' : 'Sell'}</th>
-                      <th>{isRTL ? 'الإجمالي' : 'Total'}</th>
-                      <th>{isRTL ? 'الربح' : 'Profit'}</th>
-                      <th>{isRTL ? 'العميل' : 'Customer'}</th>
-                      <th>{isRTL ? 'الموظف' : 'Employee'}</th>
-                      <th>{isRTL ? 'الدفع/الحالة' : 'Payment/Status'}</th>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{isRTL ? 'الفاتورة' : 'Invoice'}</th>
+                    <th>{isRTL ? 'التاريخ والوقت' : 'Date & Time'}</th>
+                    <th>{isRTL ? 'اسم المنتج' : 'Product'}</th>
+                    <th>{isRTL ? 'الباركود/الكود' : 'Barcode/SKU'}</th>
+                    <th>{isRTL ? 'الماركة/الموديل' : 'Brand/Model'}</th>
+                    <th>{isRTL ? 'الكمية' : 'Qty'}</th>
+                    <th>{isRTL ? 'سعر الشراء' : 'Buy'}</th>
+                    <th>{isRTL ? 'سعر البيع' : 'Sell'}</th>
+                    <th>{isRTL ? 'خصم البند' : 'Item Disc'}</th>
+                    <th>{isRTL ? 'خصم فاتورة' : 'Inv Disc'}</th>
+                    <th>{isRTL ? 'الإجمالي' : 'Total'}</th>
+                    <th>{isRTL ? 'الربح' : 'Profit'}</th>
+                    <th>{isRTL ? 'العميل' : 'Customer'}</th>
+                    <th>{isRTL ? 'الموظف' : 'Employee'}</th>
+                    <th>{isRTL ? 'الدفع/الحالة' : 'Payment/Status'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)' }}>{r.invoiceNumber}</td>
+                      <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        <div>{formatDate(r.createdAt)}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {new Date(r.createdAt).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {r.productName}
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t(r.productType)} {r.category ? `- ${r.category}` : ''}</div>
+                      </td>
+                      <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        <div>{r.barcode || '-'}</div>
+                        <div style={{ color: 'var(--text-muted)' }}>{r.sku || '-'}</div>
+                      </td>
+                      <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        <div>{r.brand || '-'}</div>
+                        <div style={{ color: 'var(--text-muted)' }}>{r.model || '-'}</div>
+                      </td>
+                      <td><span className="badge badge-info">{r.quantity}</span></td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{formatCurrency(r.buyPrice)}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(r.sellPrice)}</td>
+                      <td style={{ color: r.itemDiscount > 0 ? '#F59E0B' : 'var(--text-muted)', fontWeight: r.itemDiscount > 0 ? 700 : 400 }}>{r.itemDiscount > 0 ? formatCurrency(r.itemDiscount) : '-'}</td>
+                      <td style={{ color: r.invoiceDiscount > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: r.invoiceDiscount > 0 ? 700 : 400 }}>{r.invoiceDiscount > 0 ? formatCurrency(r.invoiceDiscount) : '-'}</td>
+                      <td style={{ fontWeight: 700, color: '#2563EB' }}>{formatCurrency(r.totalSale)}</td>
+                      <td style={{ fontWeight: 700, color: '#10B981' }}>{formatCurrency(r.totalProfit)}</td>
+                      <td style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                        {r.customerName}
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {r.customerPhone !== '-' ? r.customerPhone : ''}
+                          {r.customerAddress && r.customerAddress !== '-' ? ` | ${r.customerAddress}` : ''}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.userName}</td>
+                      <td style={{ fontSize: '11px' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{t(r.paymentMethod) || r.paymentMethod}</div>
+                        <div style={{ color: r.status === 'completed' ? '#10B981' : 'var(--text-muted)' }}>{t(r.status) || r.status}</div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((r, i) => (
-                      <tr key={i}>
-                        <td style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)' }}>{r.invoiceNumber}</td>
-                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          <div>{formatDate(r.createdAt)}</div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            {new Date(r.createdAt).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {r.productName}
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t(r.productType)} {r.category ? `- ${r.category}` : ''}</div>
-                        </td>
-                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          <div>{r.barcode || '-'}</div>
-                          <div style={{ color: 'var(--text-muted)' }}>{r.sku || '-'}</div>
-                        </td>
-                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          <div>{r.brand || '-'}</div>
-                          <div style={{ color: 'var(--text-muted)' }}>{r.model || '-'}</div>
-                        </td>
-                        <td><span className="badge badge-info">{r.quantity}</span></td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{formatCurrency(r.buyPrice)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(r.sellPrice)}</td>
-                        <td style={{ fontWeight: 700, color: '#2563EB' }}>{formatCurrency(r.totalSale)}</td>
-                        <td style={{ fontWeight: 700, color: '#10B981' }}>{formatCurrency(r.totalProfit)}</td>
-                        <td style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                          {r.customerName}
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            {r.customerPhone !== '-' ? r.customerPhone : ''}
-                            {r.customerAddress && r.customerAddress !== '-' ? ` | ${r.customerAddress}` : ''}
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.userName}</td>
-                        <td style={{ fontSize: '11px' }}>
-                          <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{t(r.paymentMethod) || r.paymentMethod}</div>
-                          <div style={{ color: r.status === 'completed' ? '#10B981' : 'var(--text-muted)' }}>{t(r.status) || r.status}</div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

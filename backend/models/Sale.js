@@ -4,7 +4,7 @@ const saleSchema = new mongoose.Schema({
   invoiceNumber: { type: String, required: true, unique: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  
+
   // Sale category for reports
   saleCategory: {
     type: String,
@@ -24,8 +24,11 @@ const saleSchema = new mongoose.Schema({
     sku: String,
     quantity: Number,
     buyPrice: Number,
-    sellPrice: Number,
-    total: Number
+    sellPrice: Number,        // سعر البيع الفعلي وقت البيع
+    originalPrice: Number,   // سعر البيع الأساسي قبل سعر الكاشير
+    cashierPrice: Number,    // سعر الكاشير المحدد وقت البيع
+    itemDiscount: { type: Number, default: 0 }, // خصم بند الفاتورة
+    total: Number            // إجمالي السطر بعد خصم البند
   }],
   subtotal: { type: Number, default: 0 },
   discount: { type: Number, default: 0 },

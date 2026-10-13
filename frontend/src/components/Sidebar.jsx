@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Monitor, Users, Truck,
   Warehouse, BarChart3, Settings, X, Barcode, ShoppingBag, Wallet,
-  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge, Battery, CircleDashed, Link, Sparkles, UserCog
+  Bike, ChevronDown, DollarSign, PieChart, Zap, TrendingUp, Gauge, Battery, CircleDashed, Link, Sparkles, UserCog, Tag
 } from 'lucide-react';
 
 const navGroups = [
@@ -30,6 +30,7 @@ const navGroups = [
     labelEn: 'Products & Inventory',
     items: [
       { key: 'products', path: '/products', icon: Package, roles: ['admin', 'warehouse', 'cashier'] },
+      { key: 'cashierPrices', path: '/cashier-prices', icon: Tag, roles: ['admin', 'warehouse'] },
       { key: 'motorcycles', path: '/motorcycles', icon: Bike, roles: ['admin', 'warehouse'] },
       { key: 'scooters', path: '/scooters', icon: Gauge, roles: ['admin', 'warehouse'] },
       { key: 'barcodes', path: '/barcodes', icon: Barcode, roles: ['admin', 'warehouse'] },

@@ -24,6 +24,7 @@ import Motorcycles from './pages/Motorcycles';
 import Scooters from './pages/Scooters';
 import Capital from './pages/Capital';
 import AdvancedReport from './pages/AdvancedReport';
+import CashierPrices from './pages/CashierPrices';
 import { Package, Droplet, Bike, Zap, Battery, CircleDashed, Link, Sparkles, BarChart3 } from 'lucide-react';
 
 function ToasterWithTheme() {
@@ -67,6 +68,7 @@ export default function App() {
                   <Route path="/motorcycles" element={<Motorcycles />} />
                   <Route path="/scooters" element={<Scooters />} />
                   <Route path="/capital" element={<Capital />} />
+                  <Route path="/cashier-prices" element={<CashierPrices />} />
 
                   {/* Category Reports */}
                   <Route path="/reports/oils" element={<AdvancedReport type="oils" title="تقارير الزيوت" icon={Droplet} color="#10B981" />} />

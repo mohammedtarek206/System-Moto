@@ -58,17 +58,31 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
   // Calculation formatting
   const fmt = (n) => Number(n || 0).toFixed(2);
 
-  const subtotal = sale.items?.reduce((s, i) => s + (i.sellPrice * i.quantity), 0) || 0;
-  const totalQty  = sale.items?.reduce((s, i) => s + i.quantity, 0) || 0;
-  const discount  = sale.discount || 0;
-  
-  // Tax calculations: handle dynamic tax from settings rate or sale property
-  const taxRate = settings?.taxRate || sale.taxRate || 14; 
-  const taxAmount = sale.tax || (subtotal * (taxRate / 100));
-  const finalTotal = sale.totalAmount || sale.total || (subtotal - discount + taxAmount);
-  
-  const paid      = sale.paidAmount || finalTotal;
-  const change    = Math.max(0, paid - finalTotal);
+  const totalQty = sale.items?.reduce((s, i) => s + i.quantity, 0) || 0;
+
+  // Use stored subtotal (before any discount) if available, else calculate from items
+  const subtotalStored = sale.subtotal || 0;
+  const subtotalCalc = sale.items?.reduce((s, i) => s + ((i.sellPrice || 0) * (i.quantity || 0)), 0) || 0;
+  const subtotal = subtotalStored > 0 ? subtotalStored : subtotalCalc;
+
+  // Item-level discounts sum
+  const totalItemDiscounts = sale.items?.reduce((s, i) => s + (i.itemDiscount || 0), 0) || 0;
+
+  // Invoice-level discount
+  const invoiceDiscount = sale.discount || 0;
+
+  // Total discount = item discounts + invoice discount
+  const totalDiscounts = totalItemDiscounts + invoiceDiscount;
+
+  // Tax
+  const taxRate = settings?.taxRate || sale.taxRate || 0;
+  const taxAmount = sale.tax || 0;
+
+  // Final total from DB (most authoritative), fallback to calculation
+  const finalTotal = sale.totalAmount || sale.total || Math.max(0, subtotal - totalDiscounts + taxAmount);
+
+  const paid = sale.paidAmount || finalTotal;
+  const change = Math.max(0, paid - finalTotal);
 
   // Formatting dates & times in Arabic local format
   const invoiceDate = new Date(sale.createdAt || Date.now());
@@ -382,7 +396,7 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
 
       {/* ======= THERMAL INVOICE CONTAINER ======= */}
       <div ref={ref} className={`thermal-receipt-root size-${paperSize}`}>
-        
+
         {/* ===== LOGO & HEADER SECTION ===== */}
         <div className="receipt-header">
           {/* Store Logo */}
@@ -443,22 +457,29 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
             </tr>
           </thead>
           <tbody>
-            {sale.items?.map((item, idx) => (
-              <tr key={idx}>
-                <td className="col-idx">{idx + 1}</td>
-                <td className="col-name">
-                  <div>{item.product?.nameAr || item.product?.name || item.name || item.nameAr || '—'}</div>
-                  {/* Optional SKU/Barcode rendering below name to maximize print area */}
-                  {(item.product?.sku && item.product.sku !== item.product?.barcode) && (
-                    <div className="receipt-item-details font-mono">({item.product.sku})</div>
-                  )}
-                </td>
-                <td className="col-code font-mono">{item.product?.sku || item.product?.barcode || '—'}</td>
-                <td className="col-qty">{item.quantity}</td>
-                <td className="col-price">{fmt(item.sellPrice)}</td>
-                <td className="col-total">{fmt(item.sellPrice * item.quantity)}</td>
-              </tr>
-            ))}
+            {sale.items?.map((item, idx) => {
+              const lineSubtotal = (item.sellPrice || 0) * (item.quantity || 0);
+              const lineDiscount = item.itemDiscount || 0;
+              const lineTotal = item.total ?? (lineSubtotal - lineDiscount);
+              return (
+                <tr key={idx}>
+                  <td className="col-idx">{idx + 1}</td>
+                  <td className="col-name">
+                    <div>{item.product?.nameAr || item.product?.name || item.name || item.nameAr || '—'}</div>
+                    {(item.product?.sku && item.product.sku !== item.product?.barcode) && (
+                      <div className="receipt-item-details font-mono">({item.product.sku})</div>
+                    )}
+                    {lineDiscount > 0 && (
+                      <div className="receipt-item-details">خصم: -{fmt(lineDiscount)}</div>
+                    )}
+                  </td>
+                  <td className="col-code font-mono">{item.product?.sku || item.product?.barcode || '—'}</td>
+                  <td className="col-qty">{item.quantity}</td>
+                  <td className="col-price">{fmt(item.sellPrice)}</td>
+                  <td className="col-total">{fmt(lineTotal)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -478,20 +499,34 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
             <span>إجمالي قبل الخصم :</span>
             <span className="font-mono">{fmt(subtotal)}</span>
           </div>
-          <div className="receipt-totals-row font-bold" style={{ color: discount > 0 ? '#000000' : 'inherit' }}>
-            <span>الخصم :</span>
-            <span className="font-mono">-{fmt(discount)}</span>
-          </div>
-          <div className="receipt-totals-row">
-            <span>ضريبة القيمة المضافة ({taxRate}%) :</span>
-            <span className="font-mono">{fmt(taxAmount)}</span>
-          </div>
-          
+          {totalItemDiscounts > 0 && (
+            <div className="receipt-totals-row" style={{ fontWeight: 700 }}>
+              <span>خصومات البنود :</span>
+              <span className="font-mono">-{fmt(totalItemDiscounts)}</span>
+            </div>
+          )}
+          {invoiceDiscount > 0 && (
+            <div className="receipt-totals-row" style={{ fontWeight: 700 }}>
+              <span>خصم الفاتورة :</span>
+              <span className="font-mono">-{fmt(invoiceDiscount)}</span>
+            </div>
+          )}
+          {totalDiscounts > 0 && (
+            <div className="receipt-totals-row" style={{ fontWeight: 800, borderTop: '1px dotted #ccc', paddingTop: '3px' }}>
+              <span>إجمالي الخصم :</span>
+              <span className="font-mono">-{fmt(totalDiscounts)}</span>
+            </div>
+          )}
+          {taxAmount > 0 && (
+            <div className="receipt-totals-row">
+              <span>ضريبة القيمة المضافة ({taxRate}%) :</span>
+              <span className="font-mono">{fmt(taxAmount)}</span>
+            </div>
+          )}
           <div className="receipt-totals-row grand-total">
             <span>الإجمالي النهائي :</span>
             <span className="font-mono">{fmt(finalTotal)}</span>
           </div>
-
           <div className="receipt-totals-row" style={{ marginTop: '4px', opacity: 0.9 }}>
             <span>المبلغ المدفوع :</span>
             <span className="font-mono">{fmt(paid)}</span>
@@ -510,7 +545,7 @@ const ProfessionalInvoice = forwardRef(({ sale, receiptWidth }, ref) => {
         <div className="receipt-footer">
           <div className="receipt-thank">شكرا لثقتكم بنا</div>
           <div className="receipt-thank">★ نتمنى لكم تجربة تسوق ممتعة ★</div>
-          
+
           <div className="receipt-divider"></div>
 
           {/* Dynamic Vector Barcode */}

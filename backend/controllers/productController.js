@@ -309,3 +309,114 @@ exports.getInventoryStats = async (req, res) => {
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 };
+
+// ===================== CASHIER PRICES =====================
+
+exports.getCashierPrices = async (req, res) => {
+  try {
+    const { search, category, product_type, has_cashier_price } = req.query;
+
+    let query = { isActive: true };
+    if (category) query.category = category;
+    if (product_type) query.productType = product_type;
+    if (search) {
+      query.$or = [
+        { name: new RegExp(search, 'i') },
+        { nameAr: new RegExp(search, 'i') },
+        { sku: new RegExp(search, 'i') },
+        { barcode: new RegExp(search, 'i') },
+        { brand: new RegExp(search, 'i') },
+        { model: new RegExp(search, 'i') },
+      ];
+    }
+    if (has_cashier_price === 'true') {
+      query.cashierPrice = { $ne: null, $gt: 0 };
+    } else if (has_cashier_price === 'false') {
+      query.$and = [
+        ...(query.$and || []),
+        { $or: [{ cashierPrice: null }, { cashierPrice: { $exists: false } }] }
+      ];
+    }
+
+    const products = await Product.find(query)
+      .populate('category', 'name nameAr')
+      .populate('cashierPriceUpdatedBy', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: products, total: products.length });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+};
+
+exports.updateCashierPrice = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'warehouse') {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بتعديل سعر الكاشير' });
+    }
+
+    const { cashierPrice, minSellPrice } = req.body;
+    const updateData = {
+      cashierPriceUpdatedAt: new Date(),
+      cashierPriceUpdatedBy: req.user._id,
+      cashierPriceUpdatedByName: req.user.name,
+    };
+
+    if (cashierPrice !== undefined) {
+      updateData.cashierPrice = (cashierPrice === '' || cashierPrice === null) ? null : Math.max(0, Number(cashierPrice));
+    }
+    if (minSellPrice !== undefined) {
+      updateData.minSellPrice = (minSellPrice === '' || minSellPrice === null) ? null : Math.max(0, Number(minSellPrice));
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true })
+      .populate('category', 'name nameAr')
+      .populate('cashierPriceUpdatedBy', 'name');
+
+    if (!product) return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'تحديث سعر الكاشير',
+      details: { productId: product._id, name: product.name, cashierPrice: updateData.cashierPrice }
+    });
+
+    res.json({ success: true, message: 'تم تحديث سعر الكاشير بنجاح', data: product });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+};
+
+exports.bulkUpdateCashierPrices = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'مصرح للمدير فقط بالتحديث الجماعي' });
+    }
+
+    const { updates } = req.body; // [{ productId, cashierPrice }]
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'لم يتم توفير بيانات للتحديث' });
+    }
+
+    let updatedCount = 0;
+    for (const u of updates) {
+      if (!u.productId) continue;
+      const updateData = {
+        cashierPrice: (u.cashierPrice === '' || u.cashierPrice === null) ? null : Math.max(0, Number(u.cashierPrice)),
+        cashierPriceUpdatedAt: new Date(),
+        cashierPriceUpdatedBy: req.user._id,
+        cashierPriceUpdatedByName: req.user.name,
+      };
+      const product = await Product.findByIdAndUpdate(u.productId, updateData, { new: true });
+      if (product) updatedCount++;
+    }
+
+    await AuditLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      role: req.user.role,
+      action: 'تحديث جماعي لأسعار الكاشير',
+      details: { updatedCount }
+    });
+
+    res.json({ success: true, message: `تم تحديث ${updatedCount} منتج بنجاح`, updatedCount });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+};
