@@ -1,7 +1,16 @@
 import axios from 'axios';
 
+// Normalize API base URL to ensure valid endpoint prefix
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  const trimmed = envUrl.trim().replace(/\/+$/, '');
+  // If user provided a base host without /api (e.g. http://localhost:5000), append /api
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseURL(),
   timeout: 15000,
 });
 

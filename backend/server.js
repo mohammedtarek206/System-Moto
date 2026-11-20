@@ -33,21 +33,29 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // =================== API Routes ===================
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/sales', require('./routes/sales'));
-app.use('/api/purchases', require('./routes/purchases'));
-app.use('/api/contacts', require('./routes/contacts'));
-app.use('/api/inventory', require('./routes/inventory'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/settings', require('./routes/settings'));
-app.use('/api/installments', require('./routes/installments'));
-app.use('/api/capital', require('./routes/capital'));       // دورة رأس المال
-app.use('/api/capital2', require('./routes/capital2'));    // رأس المال الشامل
-app.use('/api/reports', require('./routes/reports'));       // تقارير متقدمة
+const routeModules = [
+  ['/auth', require('./routes/auth')],
+  ['/products', require('./routes/products')],
+  ['/sales', require('./routes/sales')],
+  ['/purchases', require('./routes/purchases')],
+  ['/contacts', require('./routes/contacts')],
+  ['/inventory', require('./routes/inventory')],
+  ['/dashboard', require('./routes/dashboard')],
+  ['/settings', require('./routes/settings')],
+  ['/installments', require('./routes/installments')],
+  ['/capital', require('./routes/capital')],       // دورة رأس المال
+  ['/capital2', require('./routes/capital2')],    // رأس المال الشامل
+  ['/reports', require('./routes/reports')],       // تقارير متقدمة
+];
+
+// Mount each router on both /api/* and /* for backwards and direct compatibility
+routeModules.forEach(([routePath, handler]) => {
+  app.use(`/api${routePath}`, handler);
+  app.use(routePath, handler);
+});
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({ success: true, message: 'Moto Parts API is running 🏍️', version: '2.0.0', time: new Date() });
 });
 
