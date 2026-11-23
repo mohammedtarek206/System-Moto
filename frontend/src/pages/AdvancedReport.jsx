@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { TrendingUp, Download, FileText, Printer, Search, Filter, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
@@ -8,12 +7,11 @@ import {
   AreaChart, Area
 } from 'recharts';
 import { Link } from 'react-router-dom';
+import api from '../lib/api';
 import { exportToPDF, exportToExcel, exportToCSV, printTable, formatCurrency, formatDate, getDateRange } from '../lib/exportUtils';
 import { useLang } from '../contexts/LangContext';
 import { useTheme } from '../contexts/ThemeContext';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const TOKEN = () => localStorage.getItem('moto_token');
 const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 const PERIODS = [
@@ -67,14 +65,11 @@ export default function AdvancedReport({ type = 'all', title, icon: Icon, color 
       if (category) params.set('category', category);
       if (brand) params.set('brand', brand);
 
-      const res = await axios.get(`${API}/reports/advanced?${params}`, {
-        headers: { Authorization: `Bearer ${TOKEN()}` },
-        timeout: 15000 // 15 seconds timeout
-      });
+      const res = await api.get(`/reports/advanced?${params}`);
       setData(res.data.data);
     } catch (err) {
       console.error('Report Fetch Error:', err);
-      const errMsg = err.response?.data?.message || err.message || 'Unknown error occurred';
+      const errMsg = err.response?.data?.message || err.message || (isRTL ? 'تعذر الاتصال بالخادم، يرجى التأكد من تشغيل الخادم' : 'Failed to connect to server');
       setError(errMsg);
       toast.error(isRTL ? `حدث خطأ: ${errMsg}` : `Error: ${errMsg}`);
     } finally {

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,14 +12,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
+import api from '../lib/api';
 import {
   exportToPDF, exportToExcel, exportToCSV, printTable,
   formatCurrency, getDateRange, EXPENSE_CATEGORIES
 } from '../lib/exportUtils';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const TOKEN = () => localStorage.getItem('moto_token');
-const H = () => ({ headers: { Authorization: `Bearer ${TOKEN()}` } });
 
 const C = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#a855f7'];
 
@@ -111,9 +107,9 @@ function ExpenseForm({ expense, onSave, onClose }) {
   const handleSubmit = async e => {
     e.preventDefault(); setLoading(true);
     try {
-      const url = expense ? `${API}/capital/${expense._id}` : `${API}/capital`;
+      const url = expense ? `/capital/${expense._id}` : '/capital';
       const method = expense ? 'put' : 'post';
-      await axios[method](url, form, H());
+      await api[method](url, form);
       toast.success(expense ? 'تم التحديث ✅' : 'تم إضافة المصروف ✅');
       onSave();
     } catch (err) { toast.error(err.response?.data?.message || 'حدث خطأ'); }
@@ -200,9 +196,9 @@ export default function Capital() {
       if (fromDate) params.set('from_date', fromDate);
       if (toDate) params.set('to_date', toDate);
       const [sumRes, expRes, fullRes] = await Promise.all([
-        axios.get(`${API}/capital/summary?${params}`, H()),
-        axios.get(`${API}/capital?${params}&limit=500`, H()),
-        axios.get(`${API}/capital2/full-summary?${params}`, H()),
+        api.get(`/capital/summary?${params}`),
+        api.get(`/capital?${params}&limit=500`),
+        api.get(`/capital2/full-summary?${params}`),
       ]);
       setSummary(sumRes.data?.data);
       setExpenses(expRes.data?.data || []);
@@ -224,7 +220,7 @@ export default function Capital() {
 
   const handleDelete = async id => {
     try {
-      await axios.delete(`${API}/capital/${id}`, H());
+      await api.delete(`/capital/${id}`);
       toast.success('تم الحذف'); setDeleteConfirm(null); fetchData();
     } catch { toast.error('فشل الحذف'); }
   };

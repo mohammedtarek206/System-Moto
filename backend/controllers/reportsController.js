@@ -88,7 +88,13 @@ exports.getAdvancedReport = async (req, res) => {
         safeQuantity: { $convert: { input: '$items.quantity', to: 'double', onError: 0, onNull: 0 } },
         safeSellPrice: { $convert: { input: '$items.sellPrice', to: 'double', onError: 0, onNull: 0 } },
         safeItemDiscount: { $convert: { input: '$items.itemDiscount', to: 'double', onError: 0, onNull: 0 } },
-        dateString: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
+        dateString: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: { $ifNull: ["$createdAt", new Date()] },
+            onNull: ""
+          }
+        }
       }
     });
 
@@ -256,9 +262,17 @@ exports.getAdvancedReport = async (req, res) => {
     });
 
     const result = await Sale.aggregate(pipeline);
-    const data = result[0];
+    const data = (result && result[0]) || {
+      items: [],
+      summary: [],
+      invoiceSummary: [],
+      byProduct: [],
+      byBrand: [],
+      byCategory: [],
+      byDate: []
+    };
 
-    const summary = data.summary[0] || {
+    const summary = (data.summary && data.summary[0]) || {
       totalQuantity: 0,
       totalRevenueBeforeDiscount: 0,
       totalItemDiscounts: 0,
@@ -269,20 +283,25 @@ exports.getAdvancedReport = async (req, res) => {
       avgSellPrice: 0
     };
 
-    const totalInvoiceDiscounts = (data.invoiceSummary[0] || {}).totalInvoiceDiscounts || 0;
+    const totalInvoiceDiscounts = ((data.invoiceSummary && data.invoiceSummary[0]) || {}).totalInvoiceDiscounts || 0;
     summary.totalInvoiceDiscounts = totalInvoiceDiscounts;
     summary.totalDiscounts = (summary.totalItemDiscounts || 0) + totalInvoiceDiscounts;
     summary.netRevenue = summary.totalRevenue - totalInvoiceDiscounts;
 
-    const bestProduct = data.byProduct[0] || null;
-    const worstProduct = data.byProduct.length > 1 ? data.byProduct[data.byProduct.length - 1] : null;
-    const bestBrand = data.byBrand[0] || null;
-    const bestCategory = data.byCategory[0] || null;
+    const byProduct = data.byProduct || [];
+    const byBrand = data.byBrand || [];
+    const byCategory = data.byCategory || [];
+    const byDate = data.byDate || [];
+
+    const bestProduct = byProduct[0] || null;
+    const worstProduct = byProduct.length > 1 ? byProduct[byProduct.length - 1] : null;
+    const bestBrand = byBrand[0] || null;
+    const bestCategory = byCategory[0] || null;
 
     res.json({
       success: true,
       data: {
-        items: data.items,
+        items: data.items || [],
         summary: {
           ...summary,
           bestProduct,
@@ -291,10 +310,10 @@ exports.getAdvancedReport = async (req, res) => {
           bestCategory
         },
         charts: {
-          byDate: data.byDate,
-          byProduct: data.byProduct.slice(0, 10), // top 10
-          byBrand: data.byBrand.slice(0, 10),
-          byCategory: data.byCategory.slice(0, 10)
+          byDate: byDate,
+          byProduct: byProduct.slice(0, 10), // top 10
+          byBrand: byBrand.slice(0, 10),
+          byCategory: byCategory.slice(0, 10)
         }
       }
     });

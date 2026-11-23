@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLang } from '../contexts/LangContext';
@@ -8,9 +7,8 @@ import {
   ChevronDown, Image, QrCode, Barcode, Package
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import api from '../lib/api';
 import { PRODUCT_TYPES } from '../lib/exportUtils';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const CONDITIONS = [
   { value: 'new', ar: 'جديد', en: 'New' },
@@ -51,10 +49,10 @@ function VehicleForm({ vehicle, onSave, onClose, token, productType = 'motorcycl
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/contacts?type=supplier`, { headers: { Authorization: `Bearer ${token}` } })
+    api.get('/contacts?type=supplier')
       .then(r => setSuppliers(r.data?.data || []))
       .catch(() => {});
-  }, [token]);
+  }, []);
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -75,14 +73,10 @@ function VehicleForm({ vehicle, onSave, onClose, token, productType = 'motorcycl
       if (imageFile) fd.append('images', imageFile);
 
       if (isEdit) {
-        await axios.put(`${API}/products/${vehicle._id}`, fd, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
-        });
+        await api.put(`/products/${vehicle._id}`, fd);
         toast.success('تم تحديث البيانات بنجاح ✅');
       } else {
-        await axios.post(`${API}/products`, fd, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
-        });
+        await api.post('/products', fd);
         toast.success(`تم إضافة ${typeLabel} بنجاح ✅`);
       }
       onSave();
@@ -263,19 +257,17 @@ export default function Motorcycles() {
       if (filterBrand) params.set('brand', filterBrand);
       if (filterCondition) params.set('condition', filterCondition);
 
-      const res = await axios.get(`${API}/products?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/products?${params}`);
       setVehicles(res.data?.data || []);
     } catch { toast.error('فشل تحميل البيانات'); }
     finally { setLoading(false); }
-  }, [token, search, filterBrand, filterCondition]);
+  }, [search, filterBrand, filterCondition]);
 
   useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API}/products/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/products/${id}`);
       toast.success('تم الحذف بنجاح');
       setDeleteConfirm(null);
       fetchVehicles();
